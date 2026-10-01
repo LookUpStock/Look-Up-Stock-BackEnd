@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-// KI-Log Nr. XX: CORS-Konfiguration mit KI (Claude) erstellt, vom Team geprüft
+// KI-Log Nr. 16: CORS-Konfiguration mit Claudeerstellt, vom Team geprüft
 
 /**
  * Erlaubt dem Frontend, die REST-API unter /api/** aufzurufen.

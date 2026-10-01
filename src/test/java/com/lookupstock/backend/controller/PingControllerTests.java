@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.web.servlet.MockMvc;
 
-// KI-Log Nr. XX: Tests für Ping-Endpunkt und CORS mit KI (Claude) erstellt, vom Team geprüft
+// KI-Log Nr. 18: Tests für Ping-Endpunkt und CORS mit Claude erstellt, vom Team geprüft
 
 @WebMvcTest(PingController.class)
 class PingControllerTests {
