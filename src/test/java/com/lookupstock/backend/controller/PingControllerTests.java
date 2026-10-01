@@ -19,21 +19,21 @@ class PingControllerTests {
     private MockMvc mockMvc;
 
     @Test
-    void pingLiefertStatusOk() throws Exception {
+    void pingReturnsStatusOk() throws Exception {
         mockMvc.perform(get("/api/v1/ping"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ok"));
     }
 
     @Test
-    void corsErlaubtFrontendOrigin() throws Exception {
+    void corsAllowsFrontendOrigin() throws Exception {
         mockMvc.perform(get("/api/v1/ping").header("Origin", "http://127.0.0.1:5500"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://127.0.0.1:5500"));
     }
 
     @Test
-    void corsLehntFremdeOriginAb() throws Exception {
+    void corsRejectsForeignOrigin() throws Exception {
         mockMvc.perform(get("/api/v1/ping").header("Origin", "http://boese-seite.example"))
                 .andExpect(status().isForbidden());
     }
