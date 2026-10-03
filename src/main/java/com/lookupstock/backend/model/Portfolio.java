@@ -63,6 +63,10 @@ public class Portfolio {
         return updatedAt;
     }
 
+    public List<Position> getPositions() {
+        return positions;
+    }
+
     public void validate() {
         List<ValidationException.FieldError> errors = new ArrayList<>();
 
