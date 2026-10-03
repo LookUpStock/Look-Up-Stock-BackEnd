@@ -25,6 +25,15 @@ public class Asset {
     protected Asset() {
     }
 
+    public Asset(String symbol, String isin, String name, String exchange, String currency, String type) {
+    this.symbol = symbol;
+    this.isin = isin;
+    this.name = name;
+    this.exchange = exchange;
+    this.currency = currency;
+    this.type = type;
+}
+
     
     public Long getId() {
         return id;
