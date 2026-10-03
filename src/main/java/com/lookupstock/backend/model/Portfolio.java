@@ -104,11 +104,11 @@ public class Portfolio {
     }
 
     public List<WeightedAsset> getWeights() {
-    BigDecimal hundert = new BigDecimal("100");
-    return positions.stream()
-            .sorted(Comparator.comparing(p -> p.getAsset().getId()))
-            .map(p -> new WeightedAsset(p.getAsset(), p.getWeight().divide(hundert)))
-            .toList();
-}
+        BigDecimal hundert = new BigDecimal("100");
+        return positions.stream()
+                .sorted(Comparator.comparing(p -> p.getAsset().getId()))
+                .map(p -> new WeightedAsset(p.getAsset(), p.getWeight().divide(hundert)))
+                .toList();
+    }
 
 }
