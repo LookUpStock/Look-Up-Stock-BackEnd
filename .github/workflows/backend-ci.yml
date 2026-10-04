@@ -1,0 +1,63 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    # PostgreSQL-Datenbank fuer die Tests (Flyway migriert das Schema beim Start,
+    # danach prueft Hibernate es mit ddl-auto=validate)
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: lookupstock_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # Werden von application.properties gelesen
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/lookupstock_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      # Dummy-Wert, damit der Spring-Kontext startet; Tests rufen die echte API nicht auf
+      TWELVE_DATA_API_KEY: ci-dummy-key
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 25 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Maven Wrapper ausfuehrbar machen
+        run: chmod +x mvnw
+
+      - name: Build & Tests
+        run: ./mvnw -B verify
+
+      - name: Testberichte hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
