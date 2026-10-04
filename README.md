@@ -42,8 +42,23 @@ Werte stehen in `src/main/resources/application.properties` und lassen sich übe
 |---|---|---|
 | `PORT` | `8080` | Port des Backends |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5500,http://127.0.0.1:5500` | Frontend-Adressen, die die API aufrufen dürfen |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/lookupstock` | JDBC-Verbindungsadresse der PostgreSQL-Datenbank |
+| `DB_USERNAME` | `postgres` | PostgreSQL-Benutzer |
+| `DB_PASSWORD` | – | Passwort des PostgreSQL-Benutzers |
 
-Beispiel in PowerShell:
+### PostgreSQL lokal verbinden
+
+1. PostgreSQL starten und eine Datenbank namens `lookupstock` sowie einen Benutzer mit Zugriff darauf anlegen.
+2. `.env.example` nach `.env` kopieren und `DB_USERNAME` und `DB_PASSWORD` auf deine PostgreSQL-Zugangsdaten setzen. Die `.env`-Datei wird beim Start aus dem Projekt-Hauptordner geladen und darf nicht committet werden.
+3. Das Backend starten:
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+Alternativ kannst du `DB_URL`, `DB_USERNAME` und `DB_PASSWORD` als Umgebungsvariablen setzen. Die Datenbank muss bereits existieren; Tabellen für JPA-Entities werden durch `spring.jpa.hibernate.ddl-auto=update` erstellt bzw. aktualisiert.
+
+Beispiel für eine andere Port-Konfiguration in PowerShell:
 
 ```powershell
 $env:PORT = "9090"
