@@ -37,7 +37,7 @@ class PortfolioControllerTest {
     @Test
     void anlegenLiefert201() throws Exception {
         Portfolio p = new Portfolio("Mein Weltportfolio");
-        p.addPosition(new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF"), new BigDecimal("100"));
+        p.addPosition(new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR"), new BigDecimal("100"));
         when(portfolioService.create(any())).thenReturn(p);
 
         mockMvc.perform(post("/api/v1/portfolios").contentType(MediaType.APPLICATION_JSON)
@@ -81,7 +81,7 @@ class PortfolioControllerTest {
     @Test
     void listeLiefert200() throws Exception {
         Portfolio p = new Portfolio("Mein Weltportfolio");
-        p.addPosition(new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF"), new BigDecimal("100"));
+        p.addPosition(new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR"), new BigDecimal("100"));
         when(portfolioService.findAll()).thenReturn(List.of(p));
 
         mockMvc.perform(post("/api/v1/portfolios/list"))
