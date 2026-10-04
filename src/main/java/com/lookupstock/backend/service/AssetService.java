@@ -1,0 +1,52 @@
+package com.lookupstock.backend.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.lookupstock.backend.client.MarketDataProvider;
+import com.lookupstock.backend.client.SearchHit;
+import com.lookupstock.backend.exception.ValidationException;
+import com.lookupstock.backend.model.Asset;
+import com.lookupstock.backend.repository.AssetRepository;
+
+import jakarta.transaction.Transactional;
+@Service
+public class AssetService {
+
+    private final MarketDataProvider marketDataProvider;
+    private final AssetRepository assetRepository;
+
+    public AssetService(MarketDataProvider marketDataProvider, AssetRepository assetRepository) {
+        this.marketDataProvider = marketDataProvider;
+        this.assetRepository = assetRepository;
+    }
+
+    @Transactional
+    public List<Asset> search(String query, Integer limit) {
+        int max = (limit == null) ? 10 : limit;
+        List<ValidationException.FieldError> errors = new ArrayList<>();
+
+        if (query == null || query.trim().length() < 2) {
+            errors.add(new ValidationException.FieldError("q", "Bitte mindestens 2 Zeichen eingeben."));
+        }
+        if (max < 1 || max > 25) {
+            errors.add(new ValidationException.FieldError("limit", "limit muss zwischen 1 und 25 liegen."));
+        }
+        if (!errors.isEmpty()) {
+            throw new ValidationException(errors.get(0).message(), errors);
+        }
+        return marketDataProvider.search(query.trim()).stream()
+                .limit(max)
+                .map(this::findOrCreate)
+                .toList();
+    }
+
+    private Asset findOrCreate(SearchHit hit) {
+        return assetRepository.findBySymbolAndMicCode(hit.symbol(), hit.micCode())
+                .orElseGet(() -> assetRepository.save(new Asset(
+                hit.symbol(), null, hit.name(), hit.exchange(),
+                hit.currency(), hit.type(), hit.micCode())));
+    }
+}
