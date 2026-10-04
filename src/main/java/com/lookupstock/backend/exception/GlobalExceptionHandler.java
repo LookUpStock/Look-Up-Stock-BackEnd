@@ -54,10 +54,14 @@ public class GlobalExceptionHandler {
                 && springError.getStatusCode().is4xxClientError()) {
             int status = springError.getStatusCode().value();
             ErrorResponse body = switch (status) {
-                case 404 -> ErrorResponse.of("NOT_FOUND", "Die angeforderte Ressource wurde nicht gefunden.", List.of());
-                case 405 -> ErrorResponse.of("METHOD_NOT_ALLOWED", "Diese HTTP-Methode ist hier nicht erlaubt.", List.of());
-                case 415 -> ErrorResponse.of("UNSUPPORTED_MEDIA_TYPE", "Der Content-Type muss application/json sein.", List.of());
-                default -> ErrorResponse.of("BAD_REQUEST", "Die Anfrage ist ungültig.", List.of());
+                case 404 ->
+                    ErrorResponse.of("NOT_FOUND", "Die angeforderte Ressource wurde nicht gefunden.", List.of());
+                case 405 ->
+                    ErrorResponse.of("METHOD_NOT_ALLOWED", "Diese HTTP-Methode ist hier nicht erlaubt.", List.of());
+                case 415 ->
+                    ErrorResponse.of("UNSUPPORTED_MEDIA_TYPE", "Der Content-Type muss application/json sein.", List.of());
+                default ->
+                    ErrorResponse.of("BAD_REQUEST", "Die Anfrage ist ungültig.", List.of());
             };
             return ResponseEntity.status(status)
                     .headers(springError.getHeaders())
@@ -67,5 +71,12 @@ public class GlobalExceptionHandler {
         log.error("Unerwarteter Fehler", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of("INTERNAL_ERROR", "Ein unerwarteter Fehler ist aufgetreten.", List.of()));
+    }
+
+    @ExceptionHandler(UpstreamUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleUpstream(UpstreamUnavailableException e) {
+        log.warn("Finance-API not available", e);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of("UPSTREAM_UNAVAILABLE", e.getMessage(), List.of()));
     }
 }
