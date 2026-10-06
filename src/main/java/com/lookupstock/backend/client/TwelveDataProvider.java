@@ -44,4 +44,28 @@ public class TwelveDataProvider implements MarketDataProvider {
             throw new UpstreamUnavailableException("Course data is currently unavailable.", e);
         }
     }
+
+    @Override
+    public List<PricePoint> getHistoricalPrices(String symbol, String interval, int outputSize) {
+        try {
+            TwelveDataTimeSeriesResponse response = restClient.get()
+                    .uri(b -> b.path("/time_series")
+                            .queryParam("symbol", symbol)
+                            .queryParam("interval", interval)
+                            .queryParam("outputsize", outputSize)
+                            .queryParam("apikey", apiKey)
+                            .build())
+                    .retrieve()
+                    .body(TwelveDataTimeSeriesResponse.class);
+            if (response == null || !"ok".equals(response.status()) || response.values() == null || response.values().isEmpty()) {
+                throw new UpstreamUnavailableException("Kursdaten sind gerade nicht verfügbar.", null);
+            }
+            return response.values().stream()
+                    .filter(price -> price.close() != null)
+                    .map(TwelveDataPrice::toPricePoint)
+                    .toList();
+        } catch (RestClientException e) {
+            throw new UpstreamUnavailableException("Course data is currently unavailable.", e);
+        }
+    }
 }
