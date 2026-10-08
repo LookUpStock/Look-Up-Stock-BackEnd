@@ -1,5 +1,6 @@
 package com.lookupstock.backend.controller;
 
+import static org.hamcrest.Matchers.endsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -7,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.lookupstock.backend.exception.GlobalExceptionHandler;
@@ -39,12 +42,19 @@ class PortfolioControllerTest {
     void anlegenLiefert201() throws Exception {
         Portfolio p = new Portfolio("Mein Weltportfolio");
         p.addPosition(new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR"), new BigDecimal("100"));
+        // @PrePersist läuft im Controller-Test nicht, daher Zeitstempel direkt setzen
+        Instant zeit = Instant.parse("2026-09-30T10:12:00Z");
+        ReflectionTestUtils.setField(p, "createdAt", zeit);
+        ReflectionTestUtils.setField(p, "updatedAt", zeit);
         when(portfolioService.create(any())).thenReturn(p);
 
         mockMvc.perform(post("/api/v1/portfolios").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Mein Weltportfolio\",\"positions\":[{\"assetId\":1,\"weight\":100}]}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Mein Weltportfolio"));
+                .andExpect(jsonPath("$.name").value("Mein Weltportfolio"))
+                .andExpect(jsonPath("$.createdAt").value(endsWith("Z")))
+                .andExpect(jsonPath("$.createdAt").value("2026-09-30T10:12:00Z"))
+                .andExpect(jsonPath("$.updatedAt").value("2026-09-30T10:12:00Z"));
     }
 
     @Test

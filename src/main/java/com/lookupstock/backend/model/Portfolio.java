@@ -2,7 +2,8 @@ package com.lookupstock.backend.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,18 +21,18 @@ public class Portfolio {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private Instant createdAt;
+    private Instant updatedAt;
 
     @PrePersist
     void beimAnlegen() {
-        createdAt = LocalDateTime.now();
+        createdAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         updatedAt = createdAt;
     }
 
     @PreUpdate
     void beimAendern() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     }
 
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -56,11 +57,11 @@ public class Portfolio {
         return name;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public LocalDateTime getUpdatedAt() {
+    public Instant getUpdatedAt() {
         return updatedAt;
     }
 
