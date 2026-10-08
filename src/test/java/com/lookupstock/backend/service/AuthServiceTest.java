@@ -1,6 +1,7 @@
 package com.lookupstock.backend.service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
@@ -103,7 +104,7 @@ class AuthServiceTest {
 
     // ---------- login ----------
     @Test
-    void login_erfolgreich_liefertTokenMit7TagenGueltigkeit() {
+    void login_erfolgreich_liefertTokenMit24StundenGueltigkeit() {
         User user = new User("anna@example.com", "HASH");
         when(userRepository.findByEmail("anna@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("geheim123", "HASH")).thenReturn(true);
@@ -111,6 +112,7 @@ class AuthServiceTest {
         LoginResponse response = service.login("Anna@Example.com", "geheim123");
 
         assertThat(response.token()).hasSize(43);
+        assertThat(AuthService.TOKEN_VALIDITY).isEqualTo(Duration.ofHours(24));
         assertThat(response.expiresAt()).isEqualTo(NOW.plus(AuthService.TOKEN_VALIDITY));
         verify(authTokenRepository).save(any(AuthToken.class));
     }

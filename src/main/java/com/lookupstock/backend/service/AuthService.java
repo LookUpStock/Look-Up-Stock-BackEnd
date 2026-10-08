@@ -5,6 +5,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -28,7 +29,7 @@ import com.lookupstock.backend.repository.UserRepository;
 @Service
 public class AuthService {
 
-    static final Duration TOKEN_VALIDITY = Duration.ofDays(7);   // mit PO bestätigen
+    static final Duration TOKEN_VALIDITY = Duration.ofHours(24);
     static final int MIN_PASSWORD_LENGTH = 8;
     static final int MAX_PASSWORD_BYTES = 72;                   // BCrypt-Grenze
     static final int MAX_EMAIL_LENGTH = 255;
@@ -88,7 +89,7 @@ public class AuthService {
                 .filter(u -> passwordEncoder.matches(password, u.getPasswordHash()))
                 .orElseThrow(() -> new UnauthorizedException(MSG_INVALID_CREDENTIALS));
 
-        Instant expiresAt = clock.instant().plus(TOKEN_VALIDITY);
+        Instant expiresAt = clock.instant().truncatedTo(ChronoUnit.SECONDS).plus(TOKEN_VALIDITY);
         String token = generateToken();
         authTokenRepository.save(new AuthToken(token, user, expiresAt));
         return new LoginResponse(token, expiresAt);
