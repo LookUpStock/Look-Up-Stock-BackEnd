@@ -28,6 +28,39 @@ class PortfolioTest {
         }
     }
 
+    @Test
+    void validate_summeAusserhalbToleranz_nenntSummeImFestenFormat() {
+        // Erwartete Texte bewusst als Literale, damit ein geändertes Format auffällt
+        assertSumDetail("Summe der Gewichtungen ist 99.98 %.", "49.98", "50");
+        assertSumDetail("Summe der Gewichtungen ist 90 %.", "60.00", "30.00");
+    }
+
+    @Test
+    void validate_anlageDreifach_wirdNurEinmalGemeldet() {
+        Portfolio portfolio = new Portfolio("Mein Depot");
+        Asset eunl = asset(1L, "EUNL");
+        portfolio.addPosition(eunl, new BigDecimal("30"));
+        portfolio.addPosition(eunl, new BigDecimal("30"));
+        portfolio.addPosition(eunl, new BigDecimal("40"));
+
+        assertThatThrownBy(portfolio::validate)
+                .isInstanceOfSatisfying(ValidationException.class, e ->
+                        assertThat(e.getErrors()).containsExactly(
+                                new ValidationException.FieldError("positions", Messages.DUPLICATE_ASSET)));
+    }
+
+    private static void assertSumDetail(String expected, String weight1, String weight2) {
+        Portfolio portfolio = new Portfolio("Mein Depot");
+        portfolio.addPosition(asset(1L, "EUNL"), new BigDecimal(weight1));
+        portfolio.addPosition(asset(2L, "IS3N"), new BigDecimal(weight2));
+
+        assertThatThrownBy(portfolio::validate)
+                .isInstanceOfSatisfying(ValidationException.class, e ->
+                        assertThat(e.getErrors()).containsExactly(
+                                new ValidationException.FieldError("positions", Messages.WEIGHT_SUM),
+                                new ValidationException.FieldError("positions", expected)));
+    }
+
     private static Asset asset(long id, String symbol) {
         Asset asset = new Asset(symbol, null, symbol, "XETRA", "EUR", "ETF", "XETR");
         ReflectionTestUtils.setField(asset, "id", id);

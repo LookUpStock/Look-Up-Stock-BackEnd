@@ -80,9 +80,12 @@ public class Portfolio {
         }
 
         Set<Long> assetIds = new HashSet<>();
+        boolean duplicateReported = false;
         for (Position p : positions) {
-            if (!assetIds.add(p.getAsset().getId())) {
+            // doppelte Anlagen nur einmal melden, der Text nennt kein Symbol
+            if (!assetIds.add(p.getAsset().getId()) && !duplicateReported) {
                 errors.add(new ValidationException.FieldError("positions", Messages.DUPLICATE_ASSET));
+                duplicateReported = true;
             }
             BigDecimal w = p.getWeight();
             if (w == null || w.compareTo(BigDecimal.ZERO) <= 0) {
