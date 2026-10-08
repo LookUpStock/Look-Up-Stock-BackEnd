@@ -21,6 +21,7 @@ import com.lookupstock.backend.exception.ValidationException;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import com.lookupstock.backend.dto.PortfolioRequest;
 import com.lookupstock.backend.dto.PositionRequest;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Portfolio;
@@ -84,7 +85,7 @@ class PortfolioServiceTest {
         // Act + Assert: Exception mit der erwarteten Meldung
         assertThatThrownBy(() -> service.findById(99L))
                 .isInstanceOf(NotFoundException.class)
-                .hasMessage("Portfolio nicht gefunden.");
+                .hasMessage(Messages.PORTFOLIO_NOT_FOUND);
     }
 
     // ---------- create: Erfolgsfall ----------
@@ -128,9 +129,9 @@ class PortfolioServiceTest {
         // Act + Assert: Exception mit Gesamtmeldung und Feldfehler
         assertThatThrownBy(() -> service.create(request("Mein Depot", position(99L, "100"))))
                 .isInstanceOfSatisfying(ValidationException.class, e -> {
-                    assertThat(e.getMessage()).isEqualTo("Das Portfolio enthält unbekannte Anlagen.");
+                    assertThat(e.getMessage()).isEqualTo(Messages.ASSET_NOT_FOUND);
                     assertThat(e.getErrors()).containsExactly(
-                            new ValidationException.FieldError("positions", "Unbekannte Anlage: 99"));
+                            new ValidationException.FieldError("positions", Messages.unknownAssetDetail(99L)));
                 });
 
         // Ungültige Daten dürfen nie gespeichert werden
@@ -141,7 +142,7 @@ class PortfolioServiceTest {
     void create_missingAssetId_isRejected() {
         givenAssets();
         assertRejected(request("Mein Depot", position(null, "100")),
-                "positions", "Unbekannte Anlage: null");
+                "positions", Messages.unknownAssetDetail(null));
     }
 
     // ---------- create: fachliche Regeln (Portfolio.validate) ----------
@@ -150,28 +151,28 @@ class PortfolioServiceTest {
     void create_blankName_isRejected() {
         givenAssets(asset(1L, "AAPL"));
         assertRejected(request("   ", position(1L, "100")),
-                "name", "Bitte einen Namen eingeben.");
+                "name", Messages.NAME_INVALID);
     }
 
     @Test
     void create_nameWith101Characters_isRejected() {
         givenAssets(asset(1L, "AAPL"));
         assertRejected(request("a".repeat(101), position(1L, "100")),
-                "name", "Der Name darf höchstens 100 Zeichen haben.");
+                "name", Messages.NAME_INVALID);
     }
 
     @Test
     void create_withoutPositions_isRejected() {
         // positions ist null: Der Service macht daraus eine leere Liste
         assertRejected(new PortfolioRequest(null, "Mein Depot", null),
-                "positions", "Bitte mindestens eine Anlage hinzufügen.");
+                "positions", Messages.POSITIONS_EMPTY);
     }
 
     @Test
     void create_weightsNotSummingTo100_isRejected() {
         givenAssets(asset(1L, "AAPL"), asset(2L, "MSFT"));
         assertRejected(request("Mein Depot", position(1L, "60"), position(2L, "30")),
-                "positions", "Summe der Gewichtungen ist 90 %.");
+                "positions", Messages.weightSumDetail(new BigDecimal("90")));
     }
 
     // Derselbe Test läuft einmal mit "0" und einmal mit "-10"
@@ -180,7 +181,7 @@ class PortfolioServiceTest {
     void create_weightZeroOrNegative_isRejected(String weight) {
         givenAssets(asset(1L, "AAPL"), asset(2L, "MSFT"));
         assertRejected(request("Mein Depot", position(1L, weight), position(2L, "100")),
-                "positions", "Jede Gewichtung muss größer als 0 % sein.");
+                "positions", Messages.WEIGHT_NOT_POSITIVE);
     }
 
     @Test
@@ -188,14 +189,14 @@ class PortfolioServiceTest {
         givenAssets(asset(1L, "AAPL"), asset(2L, "MSFT"));
         // Summe ist genau 100, nur die Nachkommastellen sind falsch
         assertRejected(request("Mein Depot", position(1L, "33.333"), position(2L, "66.667")),
-                "positions", "Gewichtungen dürfen höchstens 2 Nachkommastellen haben.");
+                "positions", Messages.WEIGHT_TOO_MANY_DECIMALS);
     }
 
     @Test
     void create_sameAssetTwice_isRejected() {
         givenAssets(asset(1L, "AAPL"));
         assertRejected(request("Mein Depot", position(1L, "50"), position(1L, "50")),
-                "positions", "Die Anlage AAPL ist doppelt enthalten.");
+                "positions", Messages.DUPLICATE_ASSET);
     }
 
     // ---------- create: Grenzwerte ----------
@@ -227,7 +228,7 @@ class PortfolioServiceTest {
 
         // Abweichung 0,02 liegt außerhalb der Toleranz
         assertRejected(request("Mein Depot", position(1L, "49.98"), position(2L, "50")),
-                "positions", "Summe der Gewichtungen ist 99.98 %.");
+                "positions", Messages.weightSumDetail(new BigDecimal("99.98")));
     }
 
     // ---------- Hilfsmethoden ----------

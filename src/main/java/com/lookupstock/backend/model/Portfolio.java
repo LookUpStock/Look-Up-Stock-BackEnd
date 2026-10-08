@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.ValidationException;
 import java.util.HashSet;
 import java.util.Set;
@@ -70,26 +71,24 @@ public class Portfolio {
     public void validate() {
         List<ValidationException.FieldError> errors = new ArrayList<>();
 
-        if (name == null || name.isBlank()) {
-            errors.add(new ValidationException.FieldError("name", "Bitte einen Namen eingeben."));
-        } else if (name.length() > 100) {
-            errors.add(new ValidationException.FieldError("name", "Der Name darf höchstens 100 Zeichen haben."));
+        if (name == null || name.isBlank() || name.length() > 100) {
+            errors.add(new ValidationException.FieldError("name", Messages.NAME_INVALID));
         }
 
         if (positions.isEmpty()) {
-            errors.add(new ValidationException.FieldError("positions", "Bitte mindestens eine Anlage hinzufügen."));
+            errors.add(new ValidationException.FieldError("positions", Messages.POSITIONS_EMPTY));
         }
 
         Set<Long> assetIds = new HashSet<>();
         for (Position p : positions) {
             if (!assetIds.add(p.getAsset().getId())) {
-                errors.add(new ValidationException.FieldError("positions", "Die Anlage " + p.getAsset().getSymbol() + " ist doppelt enthalten."));
+                errors.add(new ValidationException.FieldError("positions", Messages.DUPLICATE_ASSET));
             }
             BigDecimal w = p.getWeight();
             if (w == null || w.compareTo(BigDecimal.ZERO) <= 0) {
-                errors.add(new ValidationException.FieldError("positions", "Jede Gewichtung muss größer als 0 % sein."));
+                errors.add(new ValidationException.FieldError("positions", Messages.WEIGHT_NOT_POSITIVE));
             } else if (w.stripTrailingZeros().scale() > 2) {
-                errors.add(new ValidationException.FieldError("positions", "Gewichtungen dürfen höchstens 2 Nachkommastellen haben."));
+                errors.add(new ValidationException.FieldError("positions", Messages.WEIGHT_TOO_MANY_DECIMALS));
             }
         }
 
@@ -99,11 +98,12 @@ public class Portfolio {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (!positions.isEmpty() && summe.subtract(new BigDecimal("100")).abs().compareTo(new BigDecimal("0.01")) > 0) {
-            errors.add(new ValidationException.FieldError("positions", "Summe der Gewichtungen ist " + summe.stripTrailingZeros().toPlainString() + " %."));
+            errors.add(new ValidationException.FieldError("positions", Messages.WEIGHT_SUM));
+            errors.add(new ValidationException.FieldError("positions", Messages.weightSumDetail(summe)));
         }
 
         if (!errors.isEmpty()) {
-            throw new ValidationException("Das Portfolio ist ungültig.", errors);
+            throw new ValidationException(errors.get(0).message(), errors);
         }
     }
 

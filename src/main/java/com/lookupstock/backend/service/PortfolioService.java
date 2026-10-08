@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lookupstock.backend.dto.PortfolioRequest;
 import com.lookupstock.backend.dto.PositionRequest;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
@@ -37,11 +38,11 @@ public class PortfolioService {
         List<ValidationException.FieldError> errors = new ArrayList<>();
         for (PositionRequest p : positions) {
             if (p.assetId() == null || !assets.containsKey(p.assetId())) {
-                errors.add(new ValidationException.FieldError("positions", "Unbekannte Anlage: " + p.assetId()));
+                errors.add(new ValidationException.FieldError("positions", Messages.unknownAssetDetail(p.assetId())));
             }
         }
         if (!errors.isEmpty()) {
-            throw new ValidationException("Das Portfolio enthält unbekannte Anlagen.", errors);
+            throw new ValidationException(Messages.ASSET_NOT_FOUND, errors);
         }
         Portfolio portfolio = new Portfolio(request.name());
         for (PositionRequest p : positions) {
@@ -59,6 +60,6 @@ public class PortfolioService {
     @Transactional(readOnly = true)
     public Portfolio findById(Long id) {
         return portfolioRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Portfolio nicht gefunden."));
+                .orElseThrow(() -> new NotFoundException(Messages.PORTFOLIO_NOT_FOUND));
     }
 }

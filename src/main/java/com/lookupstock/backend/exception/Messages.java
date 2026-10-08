@@ -1,5 +1,7 @@
 package com.lookupstock.backend.exception;
 
+import java.math.BigDecimal;
+
 public final class Messages {
 
     private Messages() {
@@ -25,4 +27,24 @@ public final class Messages {
     public static final String UNSUPPORTED_MEDIA_TYPE = "Der Content-Type muss application/json sein.";
     public static final String BAD_REQUEST = "Die Anfrage ist ungültig.";
     public static final String INTERNAL_ERROR = "Ein unerwarteter Fehler ist aufgetreten.";
+
+    // Portfolio
+    public static final String NAME_INVALID = "Bitte einen Namen mit höchstens 100 Zeichen eingeben.";
+    public static final String POSITIONS_EMPTY = "Bitte mindestens eine Anlage hinzufügen.";
+    public static final String WEIGHT_NOT_POSITIVE = "Jede Gewichtung muss größer als 0 % sein.";
+    public static final String WEIGHT_TOO_MANY_DECIMALS = "Gewichtungen dürfen höchstens 2 Nachkommastellen haben.";
+    public static final String WEIGHT_SUM = "Die Gewichtungen müssen zusammen 100 % ergeben.";
+    public static final String DUPLICATE_ASSET = "Jede Anlage darf nur einmal im Portfolio enthalten sein.";
+    public static final String ASSET_NOT_FOUND = "Eine Anlage wurde nicht gefunden.";
+    public static final String PORTFOLIO_NOT_FOUND = "Portfolio nicht gefunden.";
+
+    // Long statt long: assetId kann im Request fehlen (null)
+    public static String unknownAssetDetail(Long assetId) {
+        return "Unbekannte assetId " + assetId + ".";
+    }
+
+    // Format wie bisher in Portfolio.validate(): ohne unnötige Nullen, Dezimalpunkt
+    public static String weightSumDetail(BigDecimal sum) {
+        return "Summe der Gewichtungen ist " + sum.stripTrailingZeros().toPlainString() + " %.";
+    }
 }

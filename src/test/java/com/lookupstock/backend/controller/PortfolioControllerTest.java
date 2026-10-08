@@ -18,6 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.lookupstock.backend.exception.GlobalExceptionHandler;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
@@ -49,24 +50,27 @@ class PortfolioControllerTest {
     @Test
     void pruefFehlerLiefert400() throws Exception {
         when(portfolioService.create(any())).thenThrow(new ValidationException(
-                "Die Gewichtungen müssen zusammen 100 % ergeben.",
-                List.of(new ValidationException.FieldError("positions", "Summe der Gewichtungen ist 95 %."))));
+                Messages.WEIGHT_SUM,
+                List.of(new ValidationException.FieldError("positions", Messages.WEIGHT_SUM),
+                        new ValidationException.FieldError("positions", Messages.weightSumDetail(new BigDecimal("95"))))));
 
         mockMvc.perform(post("/api/v1/portfolios").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error.details[0].field").value("positions"));
+                .andExpect(jsonPath("$.error.message").value(Messages.WEIGHT_SUM))
+                .andExpect(jsonPath("$.error.details[0].field").value("positions"))
+                .andExpect(jsonPath("$.error.details[1].message").value(Messages.weightSumDetail(new BigDecimal("95"))));
     }
 
     @Test
     void unbekannteIdLiefert404() throws Exception {
         when(portfolioService.findById(9999L))
-                .thenThrow(new NotFoundException("Portfolio nicht gefunden."));
+                .thenThrow(new NotFoundException(Messages.PORTFOLIO_NOT_FOUND));
 
         mockMvc.perform(post("/api/v1/portfolios/9999/details"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
-                .andExpect(jsonPath("$.error.message").value("Portfolio nicht gefunden."));
+                .andExpect(jsonPath("$.error.message").value(Messages.PORTFOLIO_NOT_FOUND));
     }
 
     @Test
