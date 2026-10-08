@@ -3,6 +3,7 @@ package com.lookupstock.backend.controller;
 import com.lookupstock.backend.dto.LoginResponse;
 import com.lookupstock.backend.exception.ConflictException;
 import com.lookupstock.backend.exception.GlobalExceptionHandler;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.AuthService;
@@ -47,13 +48,14 @@ class AuthControllerTest {
     @Test
     void register_vorhandeneEmail_liefert409() throws Exception {
         when(authService.register(any(), any()))
-                .thenThrow(new ConflictException("Diese E-Mail-Adresse ist bereits registriert."));
+                .thenThrow(new ConflictException(Messages.EMAIL_TAKEN));
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"anna@example.com\",\"password\":\"geheim123\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("CONFLICT"));
+                .andExpect(jsonPath("$.error.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.error.message").value(Messages.EMAIL_TAKEN));
     }
 
     @Test
@@ -72,13 +74,14 @@ class AuthControllerTest {
     @Test
     void login_falscheDaten_liefert401() throws Exception {
         when(authService.login(any(), any()))
-                .thenThrow(new UnauthorizedException("E-Mail oder Passwort ist falsch."));
+                .thenThrow(new UnauthorizedException(Messages.INVALID_CREDENTIALS));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"anna@example.com\",\"password\":\"falsch\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.error.message").value(Messages.INVALID_CREDENTIALS));
     }
 
     @Test

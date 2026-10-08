@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.lookupstock.backend.client.MarketDataProvider;
 import com.lookupstock.backend.client.SearchHit;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.repository.AssetRepository;
@@ -29,10 +30,10 @@ public class AssetService {
         List<ValidationException.FieldError> errors = new ArrayList<>();
 
         if (query == null || query.trim().length() < 2) {
-            errors.add(new ValidationException.FieldError("q", "Bitte mindestens 2 Zeichen eingeben."));
+            errors.add(new ValidationException.FieldError("q", Messages.QUERY_TOO_SHORT));
         }
         if (max < 1 || max > 25) {
-            errors.add(new ValidationException.FieldError("limit", "limit muss zwischen 1 und 25 liegen."));
+            errors.add(new ValidationException.FieldError("limit", Messages.LIMIT_RANGE));
         }
         if (!errors.isEmpty()) {
             throw new ValidationException(errors.get(0).message(), errors);
