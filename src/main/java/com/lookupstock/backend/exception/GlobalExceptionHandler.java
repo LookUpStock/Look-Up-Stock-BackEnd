@@ -49,7 +49,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.of("VALIDATION_ERROR", "Die Anfrage enthält ungültige Daten.", List.of()));
+                .body(ErrorResponse.of("VALIDATION_ERROR", Messages.REQUEST_UNREADABLE, List.of()));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -67,13 +67,13 @@ public class GlobalExceptionHandler {
             int status = springError.getStatusCode().value();
             ErrorResponse body = switch (status) {
                 case 404 ->
-                    ErrorResponse.of("NOT_FOUND", "Die angeforderte Ressource wurde nicht gefunden.", List.of());
+                    ErrorResponse.of("NOT_FOUND", Messages.RESOURCE_NOT_FOUND, List.of());
                 case 405 ->
-                    ErrorResponse.of("METHOD_NOT_ALLOWED", "Diese HTTP-Methode ist hier nicht erlaubt.", List.of());
+                    ErrorResponse.of("METHOD_NOT_ALLOWED", Messages.METHOD_NOT_ALLOWED, List.of());
                 case 415 ->
-                    ErrorResponse.of("UNSUPPORTED_MEDIA_TYPE", "Der Content-Type muss application/json sein.", List.of());
+                    ErrorResponse.of("UNSUPPORTED_MEDIA_TYPE", Messages.UNSUPPORTED_MEDIA_TYPE, List.of());
                 default ->
-                    ErrorResponse.of("BAD_REQUEST", "Die Anfrage ist ungültig.", List.of());
+                    ErrorResponse.of("BAD_REQUEST", Messages.BAD_REQUEST, List.of());
             };
             return ResponseEntity.status(status)
                     .headers(springError.getHeaders())
@@ -82,7 +82,7 @@ public class GlobalExceptionHandler {
 
         log.error("Unerwarteter Fehler", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.of("INTERNAL_ERROR", "Ein unerwarteter Fehler ist aufgetreten.", List.of()));
+                .body(ErrorResponse.of("INTERNAL_ERROR", Messages.INTERNAL_ERROR, List.of()));
     }
 
     @ExceptionHandler(UpstreamUnavailableException.class)

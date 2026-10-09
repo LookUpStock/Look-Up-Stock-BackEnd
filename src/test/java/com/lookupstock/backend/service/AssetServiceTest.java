@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import com.lookupstock.backend.client.MarketDataProvider;
 import com.lookupstock.backend.client.SearchHit;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
@@ -144,7 +145,7 @@ class AssetServiceTest {
     @ParameterizedTest
     @ValueSource(ints = {-1, 0, 26})
     void search_limitOutOfRange_isRejected(int limit) {
-        assertRejected("apple", limit, "limit", "limit muss zwischen 1 und 25 liegen.");
+        assertRejected("apple", limit, "limit", Messages.LIMIT_RANGE);
     }
 
     // ---------- Suchbegriff ----------
@@ -154,7 +155,7 @@ class AssetServiceTest {
     @NullSource
     @ValueSource(strings = {"", "   ", "a", " a "})
     void search_queryTooShort_isRejected(String query) {
-        assertRejected(query, null, "q", "Bitte mindestens 2 Zeichen eingeben.");
+        assertRejected(query, null, "q", Messages.QUERY_TOO_SHORT);
     }
 
     @Test
@@ -168,7 +169,7 @@ class AssetServiceTest {
         assertThatThrownBy(() -> service.search("a", 0))
                 .isInstanceOfSatisfying(ValidationException.class, e -> {
                     // Die Meldung ist die des ersten Fehlers
-                    assertThat(e.getMessage()).isEqualTo("Bitte mindestens 2 Zeichen eingeben.");
+                    assertThat(e.getMessage()).isEqualTo(Messages.QUERY_TOO_SHORT);
                     // Beide Felder werden genannt, in dieser Reihenfolge
                     assertThat(e.getErrors())
                             .extracting(ValidationException.FieldError::field)

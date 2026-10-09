@@ -5,6 +5,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lookupstock.backend.dto.LoginResponse;
 import com.lookupstock.backend.exception.ConflictException;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.AuthToken;
@@ -28,14 +30,10 @@ import com.lookupstock.backend.repository.UserRepository;
 @Service
 public class AuthService {
 
-    static final Duration TOKEN_VALIDITY = Duration.ofDays(7);   // mit PO bestätigen
+    static final Duration TOKEN_VALIDITY = Duration.ofHours(24);
     static final int MIN_PASSWORD_LENGTH = 8;
     static final int MAX_PASSWORD_BYTES = 72;                   // BCrypt-Grenze
     static final int MAX_EMAIL_LENGTH = 255;
-
-    static final String MSG_INVALID_CREDENTIALS = "E-Mail oder Passwort ist falsch.";
-    static final String MSG_NOT_LOGGED_IN = "Bitte erneut anmelden.";
-    static final String MSG_EMAIL_TAKEN = "Diese E-Mail-Adresse ist bereits registriert.";
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
@@ -67,7 +65,7 @@ public class AuthService {
         }
 
         if (userRepository.existsByEmail(normalized)) {
-            throw new ConflictException(MSG_EMAIL_TAKEN);
+            throw new ConflictException(Messages.EMAIL_TAKEN);
         }
         try {
             // saveAndFlush, damit ein Verstoß gegen UNIQUE(email) hier auffällt
@@ -75,20 +73,20 @@ public class AuthService {
                     new User(normalized, passwordEncoder.encode(password)));
         } catch (DataIntegrityViolationException e) {
             // zwei gleichzeitige Registrierungen mit derselben E-Mail
-            throw new ConflictException(MSG_EMAIL_TAKEN);
+            throw new ConflictException(Messages.EMAIL_TAKEN);
         }
     }
 
     @Transactional
     public LoginResponse login(String email, String password) {
         if (email == null || password == null) {
-            throw new UnauthorizedException(MSG_INVALID_CREDENTIALS);
+            throw new UnauthorizedException(Messages.INVALID_CREDENTIALS);
         }
         User user = userRepository.findByEmail(normalize(email))
                 .filter(u -> passwordEncoder.matches(password, u.getPasswordHash()))
-                .orElseThrow(() -> new UnauthorizedException(MSG_INVALID_CREDENTIALS));
+                .orElseThrow(() -> new UnauthorizedException(Messages.INVALID_CREDENTIALS));
 
-        Instant expiresAt = clock.instant().plus(TOKEN_VALIDITY);
+        Instant expiresAt = clock.instant().truncatedTo(ChronoUnit.SECONDS).plus(TOKEN_VALIDITY);
         String token = generateToken();
         authTokenRepository.save(new AuthToken(token, user, expiresAt));
         return new LoginResponse(token, expiresAt);
@@ -105,12 +103,12 @@ public class AuthService {
     @Transactional(readOnly = true)
     public User authenticate(String token) {
         if (token == null || token.isBlank()) {
-            throw new UnauthorizedException(MSG_NOT_LOGGED_IN);
+            throw new UnauthorizedException(Messages.NOT_LOGGED_IN);
         }
         AuthToken authToken = authTokenRepository.findByToken(token)
-                .orElseThrow(() -> new UnauthorizedException(MSG_NOT_LOGGED_IN));
+                .orElseThrow(() -> new UnauthorizedException(Messages.NOT_LOGGED_IN));
         if (authToken.isExpired(clock.instant())) {
-            throw new UnauthorizedException(MSG_NOT_LOGGED_IN);
+            throw new UnauthorizedException(Messages.NOT_LOGGED_IN);
         }
         return authToken.getUser();
     }
@@ -122,17 +120,15 @@ public class AuthService {
     private void validateEmail(String email, List<ValidationException.FieldError> errors) {
         if (email == null || email.length() > MAX_EMAIL_LENGTH
                 || !EMAIL_PATTERN.matcher(email).matches()) {
-            errors.add(new ValidationException.FieldError("email", "Bitte eine gültige E-Mail-Adresse eingeben."));
+            errors.add(new ValidationException.FieldError("email", Messages.EMAIL_INVALID));
         }
     }
 
     private void validatePassword(String password, List<ValidationException.FieldError> errors) {
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
-            errors.add(new ValidationException.FieldError("password",
-                    "Das Passwort muss mindestens " + MIN_PASSWORD_LENGTH + " Zeichen lang sein."));
+            errors.add(new ValidationException.FieldError("password", Messages.PASSWORD_TOO_SHORT));
         } else if (password.getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
-            errors.add(new ValidationException.FieldError("password",
-                    "Das Passwort darf höchstens " + MAX_PASSWORD_BYTES + " Byte lang sein."));
+            errors.add(new ValidationException.FieldError("password", Messages.PASSWORD_TOO_LONG));
         }
     }
 
