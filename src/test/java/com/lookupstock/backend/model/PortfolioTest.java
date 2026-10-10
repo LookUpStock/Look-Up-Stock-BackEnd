@@ -13,10 +13,12 @@ import com.lookupstock.backend.exception.ValidationException;
 
 class PortfolioTest {
 
+    private static final User OWNER = new User("anna@example.com", "hash");
+
     @Test
     void validate_nameLeerOder101Zeichen_liefertNameInvalid() {
         for (String name : new String[] {"", "a".repeat(101)}) {
-            Portfolio portfolio = new Portfolio(name);
+            Portfolio portfolio = new Portfolio(name, OWNER);
             portfolio.addPosition(asset(1L, "EUNL"), new BigDecimal("100"));
 
             assertThatThrownBy(portfolio::validate)
@@ -37,7 +39,7 @@ class PortfolioTest {
 
     @Test
     void validate_anlageDreifach_wirdNurEinmalGemeldet() {
-        Portfolio portfolio = new Portfolio("Mein Depot");
+        Portfolio portfolio = new Portfolio("Mein Depot", OWNER);
         Asset eunl = asset(1L, "EUNL");
         portfolio.addPosition(eunl, new BigDecimal("30"));
         portfolio.addPosition(eunl, new BigDecimal("30"));
@@ -50,7 +52,7 @@ class PortfolioTest {
     }
 
     private static void assertSumDetail(String expected, String weight1, String weight2) {
-        Portfolio portfolio = new Portfolio("Mein Depot");
+        Portfolio portfolio = new Portfolio("Mein Depot", OWNER);
         portfolio.addPosition(asset(1L, "EUNL"), new BigDecimal(weight1));
         portfolio.addPosition(asset(2L, "IS3N"), new BigDecimal(weight2));
 

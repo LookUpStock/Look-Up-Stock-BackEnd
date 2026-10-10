@@ -38,11 +38,16 @@ public class Portfolio {
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Position> positions = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User owner;
+
     protected Portfolio() {
     }
 
-    public Portfolio(String name) {
+    public Portfolio(String name, User owner) {
         this.name = name;
+        this.owner = owner;
     }
 
     public void addPosition(Asset asset, BigDecimal weight) {
@@ -63,6 +68,10 @@ public class Portfolio {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public User getOwner() {
+        return owner;
     }
 
     public List<Position> getPositions() {

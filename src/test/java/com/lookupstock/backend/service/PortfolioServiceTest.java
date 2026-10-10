@@ -26,10 +26,17 @@ import com.lookupstock.backend.exception.NotFoundException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.Position;
+import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.repository.AssetRepository;
 import com.lookupstock.backend.repository.PortfolioRepository;
 
 class PortfolioServiceTest {
+
+    // Angemeldeter Nutzer, dem die angelegten Portfolios gehören
+    private static final User OWNER = new User("anna@example.com", "hash");
+
+    // Ein zweiter Nutzer, dem die Portfolios von OWNER nicht gehören
+    private static final User OTHER = new User("ben@example.com", "hash");
 
     // Gemockte Repositories statt echter Datenbank
     private PortfolioRepository portfolioRepository;
@@ -52,14 +59,14 @@ class PortfolioServiceTest {
     // ---------- findAll ----------
 
     @Test
-    void findAll_returnsAllPortfoliosFromRepository() {
-        // Arrange: Repository liefert zwei Portfolios
-        Portfolio first = new Portfolio("Depot A");
-        Portfolio second = new Portfolio("Depot B");
-        when(portfolioRepository.findAll()).thenReturn(List.of(first, second));
+    void findAll_returnsPortfoliosOfOwnerFromRepository() {
+        // Arrange: Repository liefert zwei Portfolios des Nutzers
+        Portfolio first = new Portfolio("Depot A", OWNER);
+        Portfolio second = new Portfolio("Depot B", OWNER);
+        when(portfolioRepository.findAllByOwnerOrderByCreatedAtDesc(OWNER)).thenReturn(List.of(first, second));
 
         // Act
-        List<Portfolio> result = service.findAll();
+        List<Portfolio> result = service.findAll(OWNER);
 
         // Assert: genau diese zwei, in dieser Reihenfolge
         assertThat(result).containsExactly(first, second);
@@ -70,22 +77,36 @@ class PortfolioServiceTest {
     @Test
     void findById_existingId_returnsPortfolio() {
         // Arrange: Repository findet das Portfolio
-        Portfolio portfolio = new Portfolio("Depot A");
-        when(portfolioRepository.findById(1L)).thenReturn(Optional.of(portfolio));
+        Portfolio portfolio = new Portfolio("Depot A", OWNER);
+        when(portfolioRepository.findByIdAndOwner(1L, OWNER)).thenReturn(Optional.of(portfolio));
 
         // Act + Assert: es kommt genau dasselbe Objekt zurück
-        assertThat(service.findById(1L)).isSameAs(portfolio);
+        assertThat(service.findById(1L, OWNER)).isSameAs(portfolio);
     }
 
     @Test
     void findById_unknownId_throwsNotFound() {
-        // Arrange: Repository findet nichts
-        when(portfolioRepository.findById(99L)).thenReturn(Optional.empty());
+        // Arrange: Repository findet nichts, die ID gibt es nicht
+        when(portfolioRepository.findByIdAndOwner(99L, OWNER)).thenReturn(Optional.empty());
 
         // Act + Assert: Exception mit der erwarteten Meldung
-        assertThatThrownBy(() -> service.findById(99L))
+        assertThatThrownBy(() -> service.findById(99L, OWNER))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(Messages.PORTFOLIO_NOT_FOUND);
+    }
+
+    @Test
+    void findById_portfolioEinesAnderenNutzers_liefert404_NF04() {
+        // Arrange: Portfolio 1 gehört OWNER, für OTHER findet das Repository nichts
+        when(portfolioRepository.findByIdAndOwner(1L, OTHER)).thenReturn(Optional.empty());
+
+        // Act + Assert: dieselbe Meldung wie bei einer unbekannten ID
+        assertThatThrownBy(() -> service.findById(1L, OTHER))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(Messages.PORTFOLIO_NOT_FOUND);
+
+        // Das ungefilterte findById darf nie benutzt werden
+        verify(portfolioRepository, never()).findById(any());
     }
 
     // ---------- create: Erfolgsfall ----------
@@ -100,7 +121,7 @@ class PortfolioServiceTest {
         // Act: Portfolio mit 60 % + 40 % anlegen
         Portfolio result = service.create(request("Mein Depot",
                 position(1L, "60"),
-                position(2L, "40")));
+                position(2L, "40")), OWNER);
 
         // Assert: Das Portfolio, das an save() ging, abfangen und prüfen
         ArgumentCaptor<Portfolio> captor = ArgumentCaptor.forClass(Portfolio.class);
@@ -108,6 +129,7 @@ class PortfolioServiceTest {
         Portfolio saved = captor.getValue();
 
         assertThat(saved.getName()).isEqualTo("Mein Depot");
+        assertThat(saved.getOwner()).isSameAs(OWNER);
         assertThat(saved.getPositions())
                 .extracting(p -> p.getAsset().getSymbol())
                 .containsExactly("AAPL", "MSFT");
@@ -127,7 +149,7 @@ class PortfolioServiceTest {
         givenAssets();
 
         // Act + Assert: Exception mit Gesamtmeldung und Feldfehler
-        assertThatThrownBy(() -> service.create(request("Mein Depot", position(99L, "100"))))
+        assertThatThrownBy(() -> service.create(request("Mein Depot", position(99L, "100")), OWNER))
                 .isInstanceOfSatisfying(ValidationException.class, e -> {
                     assertThat(e.getMessage()).isEqualTo(Messages.ASSET_NOT_FOUND);
                     assertThat(e.getErrors()).containsExactly(
@@ -206,7 +228,7 @@ class PortfolioServiceTest {
         givenAssets(asset(1L, "AAPL"));
 
         // 100 Zeichen sind gerade noch erlaubt
-        assertThatCode(() -> service.create(request("a".repeat(100), position(1L, "100"))))
+        assertThatCode(() -> service.create(request("a".repeat(100), position(1L, "100")), OWNER))
                 .doesNotThrowAnyException();
         verify(portfolioRepository).save(any());
     }
@@ -217,7 +239,7 @@ class PortfolioServiceTest {
 
         // Abweichung 0,01 liegt noch innerhalb der Toleranz
         assertThatCode(() -> service.create(request("Mein Depot",
-                position(1L, "49.99"), position(2L, "50"))))
+                position(1L, "49.99"), position(2L, "50")), OWNER))
                 .doesNotThrowAnyException();
         verify(portfolioRepository).save(any());
     }
@@ -258,7 +280,7 @@ class PortfolioServiceTest {
 
     // Prüft: Exception fliegt, enthält den erwarteten Feldfehler, und nichts wird gespeichert
     private void assertRejected(PortfolioRequest request, String expectedField, String expectedMessage) {
-        assertThatThrownBy(() -> service.create(request))
+        assertThatThrownBy(() -> service.create(request, OWNER))
                 .isInstanceOfSatisfying(ValidationException.class, e ->
                         assertThat(e.getErrors())
                                 .contains(new ValidationException.FieldError(expectedField, expectedMessage)));

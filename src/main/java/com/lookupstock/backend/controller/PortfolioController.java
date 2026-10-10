@@ -13,6 +13,8 @@ import com.lookupstock.backend.dto.PortfolioResponse;
 import com.lookupstock.backend.dto.PortfolioResponse.PortfolioListResponse;
 import com.lookupstock.backend.dto.TokenRequest;
 import com.lookupstock.backend.model.Portfolio;
+import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.PortfolioService;
 
 @RestController
@@ -20,26 +22,31 @@ import com.lookupstock.backend.service.PortfolioService;
 public class PortfolioController {
 
     private final PortfolioService portfolioService;
+    private final AuthService authService;
 
-    public PortfolioController(PortfolioService portfolioService) {
+    public PortfolioController(PortfolioService portfolioService, AuthService authService) {
         this.portfolioService = portfolioService;
+        this.authService = authService;
     }
 
     @PostMapping
     public ResponseEntity<PortfolioResponse> create(@RequestBody PortfolioRequest request) {
-        Portfolio portfolio = portfolioService.create(request);
+        User owner = authService.authenticate(request.token());
+        Portfolio portfolio = portfolioService.create(request, owner);
         return ResponseEntity.status(HttpStatus.CREATED).body(PortfolioResponse.from(portfolio));
     }
 
     @PostMapping("/list")
     public PortfolioListResponse list(@RequestBody(required = false) TokenRequest request) {
+        User owner = authService.authenticate(request == null ? null : request.token());
         return new PortfolioListResponse(
-                portfolioService.findAll().stream().map(PortfolioResponse::from).toList());
+                portfolioService.findAll(owner).stream().map(PortfolioResponse::from).toList());
     }
 
     @PostMapping("/{portfolioId}/details")
     public PortfolioResponse details(@PathVariable Long portfolioId,
             @RequestBody(required = false) TokenRequest request) {
-        return PortfolioResponse.from(portfolioService.findById(portfolioId));
+        User owner = authService.authenticate(request == null ? null : request.token());
+        return PortfolioResponse.from(portfolioService.findById(portfolioId, owner));
     }
 }
