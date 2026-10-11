@@ -17,6 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.lookupstock.backend.exception.GlobalExceptionHandler;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.client.PricePoint;
@@ -64,31 +65,34 @@ class AssetControllerTest {
     @Test
     void zuKurzerSuchbegriffLiefert400() throws Exception {
         when(assetService.search("M", null)).thenThrow(new ValidationException(
-                "Bitte mindestens 2 Zeichen eingeben.",
-                List.of(new ValidationException.FieldError("q", "Bitte mindestens 2 Zeichen eingeben."))));
+                Messages.QUERY_TOO_SHORT,
+                List.of(new ValidationException.FieldError("q", Messages.QUERY_TOO_SHORT))));
 
         mockMvc.perform(get("/api/v1/assets/search").param("q", "M"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error.details[0].field").value("q"));
+                .andExpect(jsonPath("$.error.message").value(Messages.QUERY_TOO_SHORT))
+                .andExpect(jsonPath("$.error.details[0].field").value("q"))
+                .andExpect(jsonPath("$.error.details[0].message").value(Messages.QUERY_TOO_SHORT));
     }
 
     @Test
     void apiAusfallLiefert503() throws Exception {
         when(assetService.search("EUNL", null)).thenThrow(
-                new UpstreamUnavailableException("Kursdaten sind gerade nicht verfügbar.", null));
+                new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null));
 
         mockMvc.perform(get("/api/v1/assets/search").param("q", "EUNL"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("UPSTREAM_UNAVAILABLE"))
-                .andExpect(jsonPath("$.error.message").value("Kursdaten sind gerade nicht verfügbar."));
+                .andExpect(jsonPath("$.error.message").value(Messages.UPSTREAM_UNAVAILABLE));
     }
 
     @Test
     void limitKeineZahlLiefert400() throws Exception {
         mockMvc.perform(get("/api/v1/assets/search").param("q", "msci").param("limit", "abc"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.message").value("Ungültiger Wert für limit."));
     }
 
     @Test

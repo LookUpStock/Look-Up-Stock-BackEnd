@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 
 @Component
@@ -34,14 +35,14 @@ public class TwelveDataProvider implements MarketDataProvider {
                     .retrieve()
                     .body(TwelveDataSearchResponse.class);
             if (response == null || !"ok".equals(response.status()) || response.data() == null) {
-                throw new UpstreamUnavailableException("Kursdaten sind gerade nicht verfügbar.", null);
+                throw new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null);
             }
             return response.data().stream()
                     .map(s -> new SearchHit(s.symbol(), s.instrumentName(), s.exchange(),
                     s.micCode(), s.currency(), s.instrumentType()))
                     .toList();
         } catch (RestClientException e) {
-            throw new UpstreamUnavailableException("Course data is currently unavailable.", e);
+            throw new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, e);
         }
     }
 
