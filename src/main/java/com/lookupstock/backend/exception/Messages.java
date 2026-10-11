@@ -1,6 +1,7 @@
 package com.lookupstock.backend.exception;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public final class Messages {
 
@@ -46,5 +47,24 @@ public final class Messages {
     // Format wie bisher in Portfolio.validate(): ohne unnötige Nullen, Dezimalpunkt
     public static String weightSumDetail(BigDecimal sum) {
         return "Summe der Gewichtungen ist " + sum.stripTrailingZeros().toPlainString() + " %.";
+    }
+
+    // Simulation (US-04)
+    public static final String PORTFOLIO_ID_REQUIRED = "Bitte ein Portfolio auswählen.";
+    public static final String PARAMETERS_REQUIRED = "Bitte alle Pflichtfelder mit Werten ab 0 ausfüllen.";
+    public static final String HORIZON_INVALID = "Der Anlagehorizont muss eine ganze Zahl von 1 bis 40 Jahren sein.";
+    public static final String PATHS_INVALID = "Die Anzahl der Simulationspfade muss zwischen 1.000 und 50.000 liegen.";
+    public static final String SEED_INVALID = "Der Seed muss eine ganze Zahl sein.";
+    public static final String INSUFFICIENT_DATA_DETAIL = "Weniger als 3 Jahre Kursdaten.";
+
+    // E6: alle betroffenen Anlagen werden mit Namen genannt
+    public static String insufficientData(List<String> assetNames) {
+        return "Für folgende Anlagen liegen weniger als 3 Jahre Kursdaten vor: "
+                + String.join(", ", assetNames) + ".";
+    }
+
+    // Detail bei Zahlenwerten, wie im API-Design („Wert: 2.5“)
+    public static String valueDetail(Object value) {
+        return "Wert: " + value;
     }
 }
