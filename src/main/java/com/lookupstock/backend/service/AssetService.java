@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.lookupstock.backend.client.MarketDataProvider;
+import com.lookupstock.backend.client.PricePoint;
 import com.lookupstock.backend.client.SearchHit;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
@@ -41,6 +42,24 @@ public class AssetService {
                 .limit(max)
                 .map(this::findOrCreate)
                 .toList();
+    }
+
+    public List<PricePoint> getHistoricalPrices(String symbol, String interval, Integer outputSize) {
+        String normalizedSymbol = symbol == null ? "" : symbol.trim();
+        String normalizedInterval = interval == null || interval.isBlank() ? "1day" : interval.trim();
+        int size = outputSize == null ? 30 : outputSize;
+        List<ValidationException.FieldError> errors = new ArrayList<>();
+
+        if (normalizedSymbol.isBlank()) {
+            errors.add(new ValidationException.FieldError("symbol", "Bitte ein Symbol angeben."));
+        }
+        if (size < 1 || size > 5000) {
+            errors.add(new ValidationException.FieldError("outputSize", "outputSize muss zwischen 1 und 5000 liegen."));
+        }
+        if (!errors.isEmpty()) {
+            throw new ValidationException(errors.get(0).message(), errors);
+        }
+        return marketDataProvider.getHistoricalPrices(normalizedSymbol, normalizedInterval, size);
     }
 
     private Asset findOrCreate(SearchHit hit) {

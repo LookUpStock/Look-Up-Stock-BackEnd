@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.lookupstock.backend.dto.AssetResponse;
+import com.lookupstock.backend.dto.AssetPricesResponse;
 import com.lookupstock.backend.dto.AssetStatsResponse;
 import com.lookupstock.backend.dto.SearchResponse;
 import com.lookupstock.backend.exception.ValidationException;
@@ -45,5 +46,13 @@ public class AssetController {
                     new ValidationException.FieldError("symbol", "Bitte ein Symbol angeben.")));
         }
         return assetStatisticsService.calculate(symbol.trim(), interval, outputSize == null ? 30 : outputSize);
+    }
+
+    @GetMapping("/{symbol}/prices")
+    public AssetPricesResponse prices(@PathVariable String symbol,
+            @RequestParam(defaultValue = "1day") String interval,
+            @RequestParam(defaultValue = "30", required = false) Integer outputSize) {
+        var prices = assetService.getHistoricalPrices(symbol, interval, outputSize);
+        return new AssetPricesResponse(symbol.trim(), interval, prices.size(), prices);
     }
 }
