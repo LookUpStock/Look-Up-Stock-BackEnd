@@ -46,15 +46,6 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("UNAUTHORIZED", e.getMessage(), List.of()));
     }
 
-    @ExceptionHandler(InsufficientDataException.class)
-    public ResponseEntity<ErrorResponse> handleInsufficientData(InsufficientDataException e) {
-        List<ErrorDetail> details = e.getAssets().stream()
-                .map(a -> new ErrorDetail("assetId", a.assetId(), a.name(), Messages.INSUFFICIENT_DATA_DETAIL))
-                .toList();
-        return ResponseEntity.status(422)
-                .body(ErrorResponse.of("INSUFFICIENT_DATA", e.getMessage(), details));
-    }
-
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException e) {
         return ResponseEntity.badRequest()

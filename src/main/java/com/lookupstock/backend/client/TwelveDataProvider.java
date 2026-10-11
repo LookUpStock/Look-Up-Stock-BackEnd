@@ -3,22 +3,17 @@ package com.lookupstock.backend.client;
 import java.time.Duration;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
 
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 
 @Component
 public class TwelveDataProvider implements MarketDataProvider {
-
-    private static final Logger log = LoggerFactory.getLogger(TwelveDataProvider.class);
 
     private final RestClient restClient;
     private final String apiKey;
@@ -34,102 +29,44 @@ public class TwelveDataProvider implements MarketDataProvider {
 
     @Override
     public List<SearchHit> search(String query) {
-        TwelveDataSearchResponse response;
         try {
-            response = restClient.get()
+            TwelveDataSearchResponse response = restClient.get()
                     .uri(b -> b.path("/symbol_search").queryParam("symbol", query).queryParam("apikey", apiKey).build())
                     .retrieve()
                     .body(TwelveDataSearchResponse.class);
-        } catch (RestClientResponseException e) {
-            return handleHttpError("symbol_search", e);
+            if (response == null || !"ok".equals(response.status()) || response.data() == null) {
+                throw new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null);
+            }
+            return response.data().stream()
+                    .map(s -> new SearchHit(s.symbol(), s.instrumentName(), s.exchange(),
+                    s.micCode(), s.currency(), s.instrumentType()))
+                    .toList();
         } catch (RestClientException e) {
-            throw unreachable("symbol_search", e);
+            throw new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, e);
         }
-
-        if (response == null) {
-            throw unavailable("symbol_search", null, "leere Antwort");
-        }
-        if (!"ok".equals(response.status())) {
-            return handleError("symbol_search", response.code(), response.message());
-        }
-        if (response.data() == null) {
-            return List.of();
-        }
-        return response.data().stream()
-                .map(s -> new SearchHit(s.symbol(), s.instrumentName(), s.exchange(),
-                        s.micCode(), s.currency(), s.instrumentType()))
-                .toList();
     }
 
     @Override
-    public List<PricePoint> getHistoricalPrices(String symbol, String micCode, String interval, int outputSize) {
-        TwelveDataTimeSeriesResponse response;
+    public List<PricePoint> getHistoricalPrices(String symbol, String interval, int outputSize) {
         try {
-            response = restClient.get()
-                    .uri(b -> {
-                        b.path("/time_series")
-                                .queryParam("symbol", symbol)
-                                .queryParam("interval", interval)
-                                .queryParam("outputsize", outputSize)
-                                .queryParam("apikey", apiKey);
-                        if (micCode != null && !micCode.isBlank()) {
-                            b.queryParam("mic_code", micCode);
-                        }
-                        return b.build();
-                    })
+            TwelveDataTimeSeriesResponse response = restClient.get()
+                    .uri(b -> b.path("/time_series")
+                            .queryParam("symbol", symbol)
+                            .queryParam("interval", interval)
+                            .queryParam("outputsize", outputSize)
+                            .queryParam("apikey", apiKey)
+                            .build())
                     .retrieve()
                     .body(TwelveDataTimeSeriesResponse.class);
-        } catch (RestClientResponseException e) {
-            return handleHttpError("time_series " + symbol, e);
+            if (response == null || !"ok".equals(response.status()) || response.values() == null || response.values().isEmpty()) {
+                throw new UpstreamUnavailableException("Kursdaten sind gerade nicht verfügbar.", null);
+            }
+            return response.values().stream()
+                    .filter(price -> price.close() != null)
+                    .map(TwelveDataPrice::toPricePoint)
+                    .toList();
         } catch (RestClientException e) {
-            throw unreachable("time_series " + symbol, e);
+            throw new UpstreamUnavailableException("Course data is currently unavailable.", e);
         }
-
-        if (response == null) {
-            throw unavailable("time_series " + symbol, null, "leere Antwort");
-        }
-        if (!"ok".equals(response.status())) {
-            return handleError("time_series " + symbol, response.code(), response.message());
-        }
-        if (response.values() == null) {
-            return List.of();
-        }
-        return response.values().stream()
-                .filter(price -> price.close() != null)
-                .map(TwelveDataPrice::toPricePoint)
-                .toList();
-    }
-
-    // ---------- Fehlerbehandlung ----------
-    // Für den Nutzer bleibt die Meldung laut API-Design immer „Kursdaten sind gerade nicht verfügbar.“ (503).
-    // Die Ursache wird unterschieden und protokolliert, damit sie im Betrieb (z. B. Heroku-Log) erkennbar ist.
-
-    /** Fehler im JSON-Body (HTTP 200 mit status "error"). Unbekanntes Symbol ergibt eine leere Liste. */
-    private <T> List<T> handleError(String operation, Integer code, String message) {
-        if (TwelveDataError.fromCode(code) == TwelveDataError.NOT_FOUND) {
-            log.info("Twelve Data ({}): keine Daten – {}", operation, message);
-            return List.of();
-        }
-        throw unavailable(operation, code, message);
-    }
-
-    /** Fehler als HTTP-Status (4xx/5xx). */
-    private <T> List<T> handleHttpError(String operation, RestClientResponseException e) {
-        return handleError(operation, e.getStatusCode().value(), e.getStatusText());
-    }
-
-    private UpstreamUnavailableException unavailable(String operation, Integer code, String message) {
-        switch (TwelveDataError.fromCode(code)) {
-            case INVALID_KEY -> log.error("Twelve Data ({}): API-Key ungültig oder ohne Berechtigung (Code {}) – {}",
-                    operation, code, message);
-            case RATE_LIMIT -> log.warn("Twelve Data ({}): API-Limit erreicht (Code 429) – {}", operation, message);
-            default -> log.warn("Twelve Data ({}): Fehler {} – {}", operation, code, message);
-        }
-        return new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null);
-    }
-
-    private UpstreamUnavailableException unreachable(String operation, RestClientException e) {
-        log.warn("Twelve Data ({}): nicht erreichbar – {}", operation, e.getMessage());
-        return new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, e);
     }
 }
