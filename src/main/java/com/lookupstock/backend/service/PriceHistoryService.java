@@ -1,5 +1,6 @@
 package com.lookupstock.backend.service;
 
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,6 +27,12 @@ public class PriceHistoryService {
     static final String MONTHLY_INTERVAL = "1month";
     /** 10 Jahre Monatswerte; mindestens 36 werden für die Schätzung benötigt (E8). */
     static final int MONTHS_TO_LOAD = 120;
+    /**
+     * Nachkommastellen der Schlusskurse wie in der Spalte price_history.close_price (NUMERIC(19,6)).
+     * Frisch geladene Kurse werden genauso gerundet wie gespeicherte, damit ein Lauf mit frischen
+     * und ein Lauf mit gecachten Kursen bei gleichem Seed dasselbe Ergebnis liefern (NF-08, Docs #81).
+     */
+    static final int PRICE_SCALE = 6;
 
     private final MarketDataProvider marketDataProvider;
     private final PriceCache priceCache;
@@ -54,6 +61,7 @@ public class PriceHistoryService {
 
         List<PricePoint> sorted = fresh.stream()
                 .filter(p -> p.date() != null && p.close() != null)
+                .map(p -> new PricePoint(p.date(), p.close().setScale(PRICE_SCALE, RoundingMode.HALF_UP)))
                 .sorted(Comparator.comparing(PricePoint::date))
                 .toList();
         if (!sorted.isEmpty()) {

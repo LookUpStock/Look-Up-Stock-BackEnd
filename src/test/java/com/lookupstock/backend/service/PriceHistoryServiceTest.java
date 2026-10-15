@@ -84,8 +84,32 @@ class PriceHistoryServiceTest {
 
         List<PricePoint> result = service.getMonthlyPrices(asset);
 
-        assertThat(result).isEqualTo(CACHED);
-        verify(cache).replace(7L, CACHED, NOW);
+        // auf 6 Nachkommastellen gerundet wie in price_history
+        List<PricePoint> expected = List.of(
+                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.000000")),
+                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.000000")));
+        assertThat(result).isEqualTo(expected);
+        verify(cache).replace(7L, expected, NOW);
+    }
+
+    @Test
+    void frischeUndGecachteKurseSindGleich() {
+        // NF-08 (Docs #81): Twelve Data liefert mehr Nachkommastellen, als price_history speichert
+        when(cache.load(7L)).thenReturn(Optional.empty());
+        when(provider.getHistoricalPrices("EUNL", "XETR", "1month", 120)).thenReturn(List.of(
+                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.12345650")),
+                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.98765449"))));
+
+        List<PricePoint> fresh = service.getMonthlyPrices(asset);
+
+        // So liefert Postgres die Werte beim nächsten Lauf aus dem Cache (NUMERIC(19,6))
+        List<PricePoint> cachedLater = List.of(
+                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.123457")),
+                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.987654")));
+        assertThat(fresh).isEqualTo(cachedLater);
+
+        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(NOW, cachedLater)));
+        assertThat(service.getMonthlyPrices(asset)).isEqualTo(fresh);
     }
 
     @Test
