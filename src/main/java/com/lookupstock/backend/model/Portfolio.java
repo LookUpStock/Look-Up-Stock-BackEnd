@@ -54,6 +54,14 @@ public class Portfolio {
         positions.add(new Position(this, asset, weight));
     }
 
+    public void clearPositions() {
+        positions.clear();
+    }
+
+    public void rename(String name) {
+        this.name = name;
+    }
+
     public Long getId() {
         return id;
     }

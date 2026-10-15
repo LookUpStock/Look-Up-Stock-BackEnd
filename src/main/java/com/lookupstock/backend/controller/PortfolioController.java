@@ -2,8 +2,10 @@ package com.lookupstock.backend.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -48,5 +50,20 @@ public class PortfolioController {
             @RequestBody(required = false) TokenRequest request) {
         User owner = authService.authenticate(request == null ? null : request.token());
         return PortfolioResponse.from(portfolioService.findById(portfolioId, owner));
+    }
+
+    @PutMapping("/{portfolioId}")
+    public PortfolioResponse update(@PathVariable Long portfolioId,
+            @RequestBody PortfolioRequest request) {
+        User owner = authService.authenticate(request.token());
+        return PortfolioResponse.from(portfolioService.update(portfolioId, request, owner));
+    }
+
+    @DeleteMapping("/{portfolioId}")
+    public ResponseEntity<Void> delete(@PathVariable Long portfolioId,
+            @RequestBody(required = false) TokenRequest request) {
+        User owner = authService.authenticate(request == null ? null : request.token());
+        portfolioService.delete(portfolioId, owner);
+        return ResponseEntity.noContent().build();
     }
 }
