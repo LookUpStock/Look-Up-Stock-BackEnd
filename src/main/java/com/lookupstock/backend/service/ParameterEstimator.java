@@ -18,6 +18,7 @@ import com.lookupstock.backend.model.EstimationResult;
 /**
  * Schätzt Jahresrendite und Jahresvolatilität je Anlage aus monatlichen Kursdaten (US-04).
  * Regeln: mindestens 36 Monatswerte je Anlage (E8), sonst 422 mit allen betroffenen Anlagen (E6);
+ * Anlagen ganz ohne Kurse werden gesondert gemeldet (Docs #80);
  * alle Anlagen werden im selben Zeitraum geschätzt (gemeinsamer Schätzzeitraum, Glossar).
  * Die Umrechnung passt zur MonteCarloEngine: Monatsrendite × 12, Monatsvolatilität × √12.
  */
@@ -36,17 +37,21 @@ public class ParameterEstimator {
     public EstimationResult estimate(List<Asset> assets) {
         // 1. Kursdaten laden und je Anlage auf mindestens 36 Monatswerte prüfen
         Map<Asset, List<PricePoint>> series = new LinkedHashMap<>();
+        List<Asset> noData = new ArrayList<>();
         List<Asset> insufficient = new ArrayList<>();
         for (Asset asset : assets) {
             List<PricePoint> prices = usable(priceHistoryService.getMonthlyPrices(asset));
-            if (prices.size() < MIN_MONTHS) {
+            if (prices.isEmpty()) {
+                // Anbieter liefert gar keine Kurse (z. B. Xetra im kostenlosen Tarif) – nicht „zu kurz“ (Docs #80)
+                noData.add(asset);
+            } else if (prices.size() < MIN_MONTHS) {
                 insufficient.add(asset);
             } else {
                 series.put(asset, prices);
             }
         }
-        if (!insufficient.isEmpty()) {
-            throw new InsufficientDataException(insufficient);
+        if (!noData.isEmpty() || !insufficient.isEmpty()) {
+            throw new InsufficientDataException(noData, insufficient);
         }
 
         // 2. Gemeinsamer Schätzzeitraum: spätester Beginn bis frühestes Ende

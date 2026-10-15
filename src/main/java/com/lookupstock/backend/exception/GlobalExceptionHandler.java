@@ -49,7 +49,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InsufficientDataException.class)
     public ResponseEntity<ErrorResponse> handleInsufficientData(InsufficientDataException e) {
         List<ErrorDetail> details = e.getAssets().stream()
-                .map(a -> new ErrorDetail("assetId", a.assetId(), a.name(), Messages.INSUFFICIENT_DATA_DETAIL))
+                .map(a -> new ErrorDetail("assetId", a.assetId(), a.name(), a.detail()))
                 .toList();
         return ResponseEntity.status(422)
                 .body(ErrorResponse.of("INSUFFICIENT_DATA", e.getMessage(), details));
