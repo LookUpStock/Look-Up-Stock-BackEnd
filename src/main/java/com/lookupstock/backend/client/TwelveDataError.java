@@ -6,8 +6,10 @@ package com.lookupstock.backend.client;
  */
 enum TwelveDataError {
 
-    /** 401/403: API-Key fehlt, ist ungültig oder der Tarif erlaubt den Endpunkt nicht. */
+    /** 401: API-Key fehlt oder ist ungültig. */
     INVALID_KEY,
+    /** 403: Der Tarif enthält das Symbol bzw. die Börse nicht (z. B. Xetra im kostenlosen Tarif, Docs #80). */
+    PLAN_RESTRICTED,
     /** 429: Kontingent von Anfragen pro Minute bzw. pro Tag ausgeschöpft. */
     RATE_LIMIT,
     /** 400/404: Symbol bzw. Börse unbekannt oder keine Daten vorhanden. */
@@ -20,7 +22,8 @@ enum TwelveDataError {
             return OTHER;
         }
         return switch (code) {
-            case 401, 403 -> INVALID_KEY;
+            case 401 -> INVALID_KEY;
+            case 403 -> PLAN_RESTRICTED;
             case 429 -> RATE_LIMIT;
             case 400, 404 -> NOT_FOUND;
             default -> OTHER;
