@@ -52,13 +52,14 @@ public class PortfolioController {
         return PortfolioResponse.from(portfolioService.findById(portfolioId, owner));
     }
 
+    // US-06: Portfolio ändern; Regeln wie beim Anlegen
     @PutMapping("/{portfolioId}")
-    public PortfolioResponse update(@PathVariable Long portfolioId,
-            @RequestBody PortfolioRequest request) {
+    public PortfolioResponse update(@PathVariable Long portfolioId, @RequestBody PortfolioRequest request) {
         User owner = authService.authenticate(request.token());
         return PortfolioResponse.from(portfolioService.update(portfolioId, request, owner));
     }
 
+    // US-06: Portfolio löschen; 204 ohne Body
     @DeleteMapping("/{portfolioId}")
     public ResponseEntity<Void> delete(@PathVariable Long portfolioId,
             @RequestBody(required = false) TokenRequest request) {

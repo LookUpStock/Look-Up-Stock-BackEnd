@@ -256,6 +256,82 @@ class PortfolioServiceTest {
     // ---------- Hilfsmethoden ----------
 
     // Erzeugt eine Test-Anlage mit gesetzter ID
+    // ---------- update (US-06) ----------
+
+    @Test
+    void update_aendertNameGewichtungenUndAnlagen() {
+        Asset apple = asset(1L, "AAPL");
+        Asset microsoft = asset(2L, "MSFT");
+        Asset nvidia = asset(3L, "NVDA");
+        Portfolio existing = new Portfolio("Alt", OWNER);
+        existing.addPosition(apple, new BigDecimal("50"));
+        existing.addPosition(microsoft, new BigDecimal("50"));
+        Position applePosition = existing.getPositions().get(0);
+        when(portfolioRepository.findByIdAndOwner(1L, OWNER)).thenReturn(Optional.of(existing));
+        givenAssets(apple, nvidia);
+
+        // AAPL bleibt mit neuer Gewichtung, MSFT fällt weg, NVDA kommt dazu
+        Portfolio result = service.update(1L, request("Neu", position(1L, "70"), position(3L, "30")), OWNER);
+
+        assertThat(result).isSameAs(existing);
+        assertThat(result.getName()).isEqualTo("Neu");
+        assertThat(result.getPositions()).extracting(p -> p.getAsset().getSymbol()).containsExactly("AAPL", "NVDA");
+        assertThat(result.getPositions()).extracting(Position::getWeight)
+                .containsExactly(new BigDecimal("70"), new BigDecimal("30"));
+        // bestehende Position wird geändert, nicht neu angelegt (UNIQUE portfolio_id, asset_id)
+        assertThat(result.getPositions().get(0)).isSameAs(applePosition);
+        assertThat(result.getUpdatedAt()).isNotNull();
+        verify(portfolioRepository).save(existing);
+    }
+
+    @Test
+    void update_ungueltigeGewichtung_laesstPortfolioUnveraendert() {
+        Asset apple = asset(1L, "AAPL");
+        Portfolio existing = new Portfolio("Alt", OWNER);
+        existing.addPosition(apple, new BigDecimal("100"));
+        when(portfolioRepository.findByIdAndOwner(1L, OWNER)).thenReturn(Optional.of(existing));
+        givenAssets(apple);
+
+        assertThatThrownBy(() -> service.update(1L, request("Neu", position(1L, "90")), OWNER))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage(Messages.WEIGHT_SUM);
+
+        assertThat(existing.getName()).isEqualTo("Alt");
+        assertThat(existing.getPositions()).extracting(Position::getWeight).containsExactly(new BigDecimal("100"));
+        verify(portfolioRepository, never()).save(any());
+    }
+
+    @Test
+    void update_fremdesPortfolio_liefert404_NF04() {
+        when(portfolioRepository.findByIdAndOwner(1L, OTHER)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.update(1L, request("X", position(1L, "100")), OTHER))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(Messages.PORTFOLIO_NOT_FOUND);
+        verify(portfolioRepository, never()).save(any());
+    }
+
+    // ---------- delete (US-06) ----------
+
+    @Test
+    void delete_eigenesPortfolio_wirdGeloescht() {
+        Portfolio existing = new Portfolio("Alt", OWNER);
+        when(portfolioRepository.findByIdAndOwner(1L, OWNER)).thenReturn(Optional.of(existing));
+
+        service.delete(1L, OWNER);
+
+        verify(portfolioRepository).delete(existing);
+    }
+
+    @Test
+    void delete_fremdesPortfolio_liefert404_NF04() {
+        when(portfolioRepository.findByIdAndOwner(1L, OTHER)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.delete(1L, OTHER))
+                .isInstanceOf(NotFoundException.class);
+        verify(portfolioRepository, never()).delete(any());
+    }
+
     private static Asset asset(long id, String symbol) {
         Asset asset = new Asset(symbol, null, symbol + " Inc.", "NASDAQ", "USD", "Common Stock", "XNAS");
         // Die ID vergibt sonst die Datenbank. Im Test setzen wir das private Feld direkt
