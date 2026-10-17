@@ -87,6 +87,8 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.estimates.assets[0].assetId").value(1))
                 .andExpect(jsonPath("$.estimates.assets[0].annualReturn").value(0.07))
                 .andExpect(jsonPath("$.timeline[1].p50").value(10_250.0))
+                .andExpect(jsonPath("$.metrics.medianEndValue").value(10_250.0))
+                .andExpect(jsonPath("$.metrics.maxDrawdownMedian").value(0.3))
                 .andExpect(jsonPath("$.runtimeMs").value(123));
     }
 
