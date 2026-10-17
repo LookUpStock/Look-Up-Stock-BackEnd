@@ -29,6 +29,7 @@ import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Estimate;
 import com.lookupstock.backend.model.EstimationResult;
+import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
@@ -73,6 +74,7 @@ class SimulationControllerTest {
                 new EstimationResult(LocalDate.of(2016, 10, 1), LocalDate.of(2026, 9, 1),
                         List.of(new Estimate(asset, 0.07, 0.15))),
                 List.of(new TimelinePoint(0, 10_000, 10_000, 10_000), new TimelinePoint(1, 9_800, 10_250, 10_700)),
+                new Metrics(58_000, 10_250, 9_800, 10_700, 0, 0.3, null),
                 123);
         when(simulationService.simulate(eq(5L), eq(params), eq(OWNER))).thenReturn(result);
 

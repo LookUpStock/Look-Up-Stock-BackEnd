@@ -3,6 +3,7 @@ package com.lookupstock.backend.dto;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
@@ -10,7 +11,6 @@ import com.lookupstock.backend.model.TimelinePoint;
 /**
  * Antwort von POST /api/v1/simulations laut API-Design.
  * id ist null, solange Simulationen nicht gespeichert werden (US-08, Sprint 3);
- * metrics folgt mit US-05 (Sprint 3).
  */
 public record SimulationResponse(
         Long id,
@@ -18,6 +18,7 @@ public record SimulationResponse(
         ParametersResponse parameters,
         EstimatesResponse estimates,
         List<TimelinePoint> timeline,
+        Metrics metrics,
         long runtimeMs) {
 
     public record ParametersResponse(double startCapital, double monthlyContribution,
@@ -44,6 +45,7 @@ public record SimulationResponse(
                                 .map(e -> new AssetEstimate(e.asset().getId(), e.annualReturn(), e.annualVolatility()))
                                 .toList()),
                 result.timeline(),
+                result.metrics(),
                 result.runtimeMs());
     }
 }
