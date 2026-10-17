@@ -19,10 +19,12 @@ public class AssetService {
 
     private final MarketDataProvider marketDataProvider;
     private final AssetRepository assetRepository;
+    private final SearchCache searchCache;
 
-    public AssetService(MarketDataProvider marketDataProvider, AssetRepository assetRepository) {
+    public AssetService(MarketDataProvider marketDataProvider, AssetRepository assetRepository, SearchCache searchCache) {
         this.marketDataProvider = marketDataProvider;
         this.assetRepository = assetRepository;
+        this.searchCache = searchCache;
     }
 
     @Transactional
@@ -39,7 +41,9 @@ public class AssetService {
         if (!errors.isEmpty()) {
             throw new ValidationException(errors.get(0).message(), errors);
         }
-        return marketDataProvider.search(query.trim()).stream()
+                // Treffer kommen 24 h aus dem Cache, nur bei Cache-Fehlschlag wird Twelve Data gefragt (NF-02)
+        String trimmedQuery = query.trim();
+        return searchCache.getOrLoad(trimmedQuery, () -> marketDataProvider.search(trimmedQuery)).stream()
                 .limit(max)
                 .map(this::findOrCreate)
                 .toList();
