@@ -17,6 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.lookupstock.backend.client.PricePoint;
 import com.lookupstock.backend.exception.InsufficientDataException;
+import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.EstimationResult;
 
@@ -112,7 +113,36 @@ class ParameterEstimatorTest {
         assertThatThrownBy(() -> estimator.estimate(List.of(lang, kurz1, kurz2)))
                 .isInstanceOfSatisfying(InsufficientDataException.class, e ->
                         assertThat(e.getAssets()).extracting(InsufficientDataException.AffectedAsset::assetId)
-                                .containsExactly(2L, 3L));
+                                .containsExactlyInAnyOrder(2L, 3L));
+    }
+
+    @Test
+    void ohneKurseWirdNichtAlsZuKurzGemeldet() {
+        // Docs #80: Xetra im kostenlosen Tarif – Anbieter liefert gar keine Kurse
+        Asset eunl = asset(1, "iShares Core MSCI World");
+        when(priceHistoryService.getMonthlyPrices(eunl)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> estimator.estimate(List.of(eunl)))
+                .isInstanceOfSatisfying(InsufficientDataException.class, e -> {
+                    assertThat(e.getMessage()).contains("keine Kurse").doesNotContain("3 Jahre");
+                    assertThat(e.getAssets()).extracting(InsufficientDataException.AffectedAsset::detail)
+                            .containsExactly(Messages.NO_PRICE_DATA_DETAIL);
+                });
+    }
+
+    @Test
+    void ohneKurseUndZuKurzWerdenGetrenntGenannt() {
+        Asset ohne = asset(1, "Ohne Kurse");
+        Asset kurz = asset(2, "Kurz");
+        when(priceHistoryService.getMonthlyPrices(ohne)).thenReturn(List.of());
+        when(priceHistoryService.getMonthlyPrices(kurz)).thenReturn(growth(LocalDate.of(2024, 1, 1), 20, 1.01));
+
+        assertThatThrownBy(() -> estimator.estimate(List.of(ohne, kurz)))
+                .isInstanceOfSatisfying(InsufficientDataException.class, e -> {
+                    assertThat(e.getMessage()).contains("keine Kurse: Ohne Kurse").contains("3 Jahre Kursdaten vor: Kurz");
+                    assertThat(e.getAssets()).extracting(InsufficientDataException.AffectedAsset::detail)
+                            .containsExactly(Messages.NO_PRICE_DATA_DETAIL, Messages.INSUFFICIENT_DATA_DETAIL);
+                });
     }
 
     @Test

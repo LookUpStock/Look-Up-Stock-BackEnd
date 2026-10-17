@@ -104,10 +104,15 @@ public class TwelveDataProvider implements MarketDataProvider {
     // Für den Nutzer bleibt die Meldung laut API-Design immer „Kursdaten sind gerade nicht verfügbar.“ (503).
     // Die Ursache wird unterschieden und protokolliert, damit sie im Betrieb (z. B. Heroku-Log) erkennbar ist.
 
-    /** Fehler im JSON-Body (HTTP 200 mit status "error"). Unbekanntes Symbol ergibt eine leere Liste. */
+    /**
+     * Fehler im JSON-Body (HTTP 200 mit status "error").
+     * Unbekanntes Symbol oder eine im Tarif nicht enthaltene Börse ergeben eine leere Liste:
+     * Für diese Anlage gibt es dauerhaft keine Kurse, Twelve Data ist aber erreichbar (kein 503, Docs #80).
+     */
     private <T> List<T> handleError(String operation, Integer code, String message) {
-        if (TwelveDataError.fromCode(code) == TwelveDataError.NOT_FOUND) {
-            log.info("Twelve Data ({}): keine Daten – {}", operation, message);
+        TwelveDataError error = TwelveDataError.fromCode(code);
+        if (error == TwelveDataError.NOT_FOUND || error == TwelveDataError.PLAN_RESTRICTED) {
+            log.warn("Twelve Data ({}): keine Kurse verfügbar (Code {}, {}) – {}", operation, code, error, message);
             return List.of();
         }
         throw unavailable(operation, code, message);
@@ -120,7 +125,7 @@ public class TwelveDataProvider implements MarketDataProvider {
 
     private UpstreamUnavailableException unavailable(String operation, Integer code, String message) {
         switch (TwelveDataError.fromCode(code)) {
-            case INVALID_KEY -> log.error("Twelve Data ({}): API-Key ungültig oder ohne Berechtigung (Code {}) – {}",
+            case INVALID_KEY -> log.error("Twelve Data ({}): API-Key fehlt oder ist ungültig (Code {}) – {}",
                     operation, code, message);
             case RATE_LIMIT -> log.warn("Twelve Data ({}): API-Limit erreicht (Code 429) – {}", operation, message);
             default -> log.warn("Twelve Data ({}): Fehler {} – {}", operation, code, message);

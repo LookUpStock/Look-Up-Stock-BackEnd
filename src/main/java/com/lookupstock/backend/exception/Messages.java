@@ -56,11 +56,18 @@ public final class Messages {
     public static final String PATHS_INVALID = "Die Anzahl der Simulationspfade muss zwischen 1.000 und 50.000 liegen.";
     public static final String SEED_INVALID = "Der Seed muss eine ganze Zahl sein.";
     public static final String INSUFFICIENT_DATA_DETAIL = "Weniger als 3 Jahre Kursdaten.";
+    public static final String NO_PRICE_DATA_DETAIL = "Keine Kursdaten beim Anbieter verfügbar.";
 
     // E6: alle betroffenen Anlagen werden mit Namen genannt
     public static String insufficientData(List<String> assetNames) {
         return "Für folgende Anlagen liegen weniger als 3 Jahre Kursdaten vor: "
                 + String.join(", ", assetNames) + ".";
+    }
+
+    // Docs #80: Anbieter liefert gar keine Kurse (z. B. Börse im Tarif nicht enthalten) – nicht „zu kurze Historie“
+    public static String noPriceData(List<String> assetNames) {
+        return "Für folgende Anlagen liefert der Kursdatenanbieter keine Kurse: "
+                + String.join(", ", assetNames) + ". Bitte die Anlage an einer anderen Börse auswählen.";
     }
 
     // Detail bei Zahlenwerten, wie im API-Design („Wert: 2.5“)
