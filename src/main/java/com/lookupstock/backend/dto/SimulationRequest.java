@@ -14,8 +14,10 @@ import com.lookupstock.backend.model.SimulationParameters;
  */
 public record SimulationRequest(String token, Long portfolioId, Parameters parameters) {
 
+    // targetAmount ist optional (US-05); Kommazahlen sind erlaubt, da es ein Eurobetrag ist
     public record Parameters(BigDecimal startCapital, BigDecimal monthlyContribution,
-                             BigDecimal horizonYears, BigDecimal paths, BigDecimal seed) {
+                             BigDecimal horizonYears, BigDecimal paths, BigDecimal seed,
+                             BigDecimal targetAmount) {
 
         /** Wandelt in SimulationParameters um; Wertebereiche prüft danach SimulationParameters.validate(). */
         public SimulationParameters toSimulationParameters() {
@@ -32,7 +34,8 @@ public record SimulationRequest(String token, Long portfolioId, Parameters param
             return new SimulationParameters(
                     startCapital == null ? null : startCapital.doubleValue(),
                     monthlyContribution == null ? null : monthlyContribution.doubleValue(),
-                    horizon, pathCount, seedValue);
+                    horizon, pathCount, seedValue,
+                    targetAmount == null ? null : targetAmount.doubleValue());
         }
 
         // null bleibt null (Pflichtfeld-Prüfung in validate()); Kommazahl oder zu groß → 400

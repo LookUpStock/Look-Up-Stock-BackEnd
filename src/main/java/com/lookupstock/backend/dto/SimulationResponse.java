@@ -21,7 +21,7 @@ public record SimulationResponse(
         long runtimeMs) {
 
     public record ParametersResponse(double startCapital, double monthlyContribution,
-                                     int horizonYears, int paths, long seed) {
+                                     int horizonYears, int paths, long seed, Double targetAmount) {
     }
 
     public record EstimatesResponse(LocalDate historyFrom, LocalDate historyTo, List<AssetEstimate> assets) {
@@ -36,7 +36,7 @@ public record SimulationResponse(
                 null,
                 result.portfolioId(),
                 new ParametersResponse(p.startCapital(), p.monthlyContribution(),
-                        p.horizonYears(), p.paths(), p.seed()),
+                        p.horizonYears(), p.paths(), p.seed(), p.targetAmount()),
                 new EstimatesResponse(
                         result.estimation().historyFrom(),
                         result.estimation().historyTo(),
