@@ -12,6 +12,7 @@ import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.EstimationResult;
+import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
@@ -91,12 +92,10 @@ public class SimulationService {
         // 5. Rendite und Volatilität schätzen (503 bzw. 422)
         EstimationResult estimation = parameterEstimator.estimate(assets);
 
-        // 6. Pfade simulieren und Perzentile berechnen
+        // 6. Pfade simulieren, Perzentile und Kennzahlen berechnen
         double[][] paths = engine.simulate(weights, estimation, effective);
         List<TimelinePoint> timeline = metricsCalculator.percentiles(paths);
-        double contributions = effective.startCapital()
-                + effective.monthlyContribution() * effective.horizonYears() * 12;
-        var metrics = metricsCalculator.summarize(paths, contributions);
+        Metrics metrics = metricsCalculator.metrics(paths, effective);
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
         return new SimulationResult(portfolio.getId(), effective, estimation, timeline, metrics, runtimeMs);

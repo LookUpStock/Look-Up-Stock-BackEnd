@@ -29,6 +29,7 @@ import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Estimate;
 import com.lookupstock.backend.model.EstimationResult;
+import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
@@ -50,6 +51,7 @@ class SimulationServiceTest {
     private Portfolio portfolio;
     private EstimationResult estimation;
     private final double[][] paths = new double[][] { { 1.0 } };
+    private final Metrics sampleMetrics = new Metrics(58_000, 2, 1, 3, 0, 0.3, null);
     private final List<TimelinePoint> timeline = List.of(new TimelinePoint(0, 1, 2, 3));
 
     @BeforeEach
@@ -72,6 +74,7 @@ class SimulationServiceTest {
         when(estimator.estimate(anyList())).thenReturn(estimation);
         when(engine.simulate(anyList(), eq(estimation), any())).thenReturn(paths);
         when(metrics.percentiles(paths)).thenReturn(timeline);
+        when(metrics.metrics(eq(paths), any())).thenReturn(sampleMetrics);
     }
 
     private static SimulationParameters params(Long seed) {
@@ -87,10 +90,12 @@ class SimulationServiceTest {
         order.verify(estimator).estimate(List.of(asset));
         order.verify(engine).simulate(portfolio.getWeights(), estimation, params(42L));
         order.verify(metrics).percentiles(paths);
+        order.verify(metrics).metrics(paths, params(42L));
 
         assertThat(result.portfolioId()).isEqualTo(5L);
         assertThat(result.estimation()).isEqualTo(estimation);
         assertThat(result.timeline()).isEqualTo(timeline);
+        assertThat(result.metrics()).isEqualTo(sampleMetrics);
         assertThat(result.runtimeMs()).isGreaterThanOrEqualTo(0);
     }
 

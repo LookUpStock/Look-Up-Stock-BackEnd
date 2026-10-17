@@ -164,4 +164,37 @@ class SimulationParametersTest {
         assertThat(thrown).isInstanceOf(ValidationException.class);
         return (ValidationException) thrown;
     }
+
+        // ---------- Zielbetrag (US-05) ----------
+
+    @Test
+    void constructor_withoutTarget_targetAmountIsNull() {
+        SimulationParameters parameters = new SimulationParameters(10_000.0, 200.0, 20, 10_000, 42L);
+
+        assertThat(parameters.targetAmount()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {0.0, -1.0})
+    void validate_targetNotPositive_isRejected(double targetAmount) {
+        ValidationException e = validationErrorOf(
+                new SimulationParameters(10_000.0, 200.0, 20, 10_000, 42L, targetAmount));
+
+        assertThat(e.getMessage()).isEqualTo("Der Zielbetrag muss größer als 0 sein.");
+        assertThat(e.getErrors()).extracting(FieldError::field).containsExactly("targetAmount");
+    }
+
+    @Test
+    void validate_positiveTarget_isAccepted() {
+        SimulationParameters parameters = new SimulationParameters(10_000.0, 200.0, 20, 10_000, 42L, 100_000.0);
+
+        assertThatCode(parameters::validate).doesNotThrowAnyException();
+    }
+
+    @Test
+    void withSeed_keepsTargetAmount() {
+        SimulationParameters parameters = new SimulationParameters(10_000.0, 200.0, 20, 10_000, null, 100_000.0);
+
+        assertThat(parameters.withSeed(7L).targetAmount()).isEqualTo(100_000.0);
+    }
 }
