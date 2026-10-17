@@ -15,13 +15,15 @@ import com.lookupstock.backend.exception.ValidationException.FieldError;
  * @param horizonYears        Anlagehorizont in ganzen Jahren
  * @param paths               Anzahl der Simulationspfade (Standard 10.000)
  * @param seed                Startwert der Zufallszahlen, darf fehlen
+ * @param targetAmount        Zielbetrag in Euro für die Kennzahl targetProbability, darf fehlen (US-05)
  */
 public record SimulationParameters(
         Double startCapital,
         Double monthlyContribution,
         Integer horizonYears,
         Integer paths,
-        Long seed) {
+        Long seed,
+        Double targetAmount) {
 
     // Grenzwerte laut API-Design
     public static final int DEFAULT_PATHS = 10_000;
@@ -35,6 +37,12 @@ public record SimulationParameters(
         if (paths == null) {
             paths = DEFAULT_PATHS;
         }
+    }
+
+    // Konstruktor ohne Zielbetrag, damit bestehender Code und Tests unverändert bleiben
+    public SimulationParameters(Double startCapital, Double monthlyContribution,
+                                Integer horizonYears, Integer paths, Long seed) {
+        this(startCapital, monthlyContribution, horizonYears, paths, seed, null);
     }
 
     /**
@@ -83,6 +91,14 @@ public record SimulationParameters(
             }
         }
 
+        // 5. Zielbetrag ist optional; wenn angegeben, muss er größer als 0 sein
+        if (targetAmount != null && targetAmount <= 0) {
+            errors.add(new FieldError("targetAmount", "Wert: " + targetAmount));
+            if (mainMessage == null) {
+                mainMessage = "Der Zielbetrag muss größer als 0 sein.";
+            }
+        }
+
         if (!errors.isEmpty()) {
             throw new ValidationException(mainMessage, errors);
         }
@@ -105,7 +121,7 @@ public record SimulationParameters(
      * @return neue Parameter mit gesetztem Seed
      */
     public SimulationParameters withSeed(long newSeed) {
-        return new SimulationParameters(startCapital, monthlyContribution, horizonYears, paths, newSeed);
+        return new SimulationParameters(startCapital, monthlyContribution, horizonYears, paths, newSeed, targetAmount);
     }
 
     // Hilfsmethode: prüft einen Geldbetrag auf "vorhanden" und "nicht negativ"
