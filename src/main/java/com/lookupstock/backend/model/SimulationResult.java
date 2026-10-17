@@ -13,5 +13,6 @@ public record SimulationResult(
         SimulationParameters parameters,
         EstimationResult estimation,
         List<TimelinePoint> timeline,
+        SimulationMetrics metrics,
         long runtimeMs) {
 }

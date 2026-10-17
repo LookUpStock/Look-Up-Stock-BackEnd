@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.lookupstock.backend.model.TimelinePoint;
+import com.lookupstock.backend.model.SimulationMetrics;
 
 /**
  * Wertet simulierte Pfade aus und berechnet je Monat das 5., 50. und 95. Perzentil
@@ -56,6 +57,40 @@ public class MetricsCalculator {
 
         // ===== D: Unveränderliche Liste zurückgeben =====
         return List.copyOf(timeline);
+    }
+
+    /** Berechnet Endwert- und Verlustrisiken direkt aus sämtlichen Simulationspfaden. */
+    public SimulationMetrics summarize(double[][] paths, double totalContributions) {
+        if (paths == null || paths.length == 0 || paths[0].length == 0) {
+            throw new IllegalArgumentException("Es wurden keine Simulationswerte übergeben.");
+        }
+
+        double[] endValues = new double[paths.length];
+        double[] maxDrawdowns = new double[paths.length];
+        for (int i = 0; i < paths.length; i++) {
+            double peak = paths[i][0];
+            double maxDrawdown = 0.0;
+            for (double value : paths[i]) {
+                peak = Math.max(peak, value);
+                if (peak > 0.0) {
+                    maxDrawdown = Math.max(maxDrawdown, (peak - value) / peak);
+                }
+            }
+            endValues[i] = paths[i][paths[i].length - 1];
+            maxDrawdowns[i] = maxDrawdown;
+        }
+
+        Arrays.sort(endValues);
+        Arrays.sort(maxDrawdowns);
+        double p5EndValue = percentile(endValues, P5);
+        return new SimulationMetrics(
+                totalContributions,
+                percentile(endValues, P50),
+                p5EndValue,
+                percentile(endValues, P95),
+                Math.max(0.0, totalContributions - p5EndValue),
+                percentile(maxDrawdowns, P50),
+                null);
     }
 
     /**

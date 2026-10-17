@@ -73,6 +73,7 @@ class SimulationControllerTest {
                 new EstimationResult(LocalDate.of(2016, 10, 1), LocalDate.of(2026, 9, 1),
                         List.of(new Estimate(asset, 0.07, 0.15))),
                 List.of(new TimelinePoint(0, 10_000, 10_000, 10_000), new TimelinePoint(1, 9_800, 10_250, 10_700)),
+                new com.lookupstock.backend.model.SimulationMetrics(58_000, 10_250, 9_800, 10_700, 0, 0.02, null),
                 123);
         when(simulationService.simulate(eq(5L), eq(params), eq(OWNER))).thenReturn(result);
 
@@ -85,6 +86,8 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.estimates.assets[0].assetId").value(1))
                 .andExpect(jsonPath("$.estimates.assets[0].annualReturn").value(0.07))
                 .andExpect(jsonPath("$.timeline[1].p50").value(10_250.0))
+                .andExpect(jsonPath("$.metrics.medianEndValue").value(10_250.0))
+                .andExpect(jsonPath("$.metrics.maxDrawdownMedian").value(0.02))
                 .andExpect(jsonPath("$.runtimeMs").value(123));
     }
 

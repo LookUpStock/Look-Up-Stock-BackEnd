@@ -94,8 +94,11 @@ public class SimulationService {
         // 6. Pfade simulieren und Perzentile berechnen
         double[][] paths = engine.simulate(weights, estimation, effective);
         List<TimelinePoint> timeline = metricsCalculator.percentiles(paths);
+        double contributions = effective.startCapital()
+                + effective.monthlyContribution() * effective.horizonYears() * 12;
+        var metrics = metricsCalculator.summarize(paths, contributions);
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
-        return new SimulationResult(portfolio.getId(), effective, estimation, timeline, runtimeMs);
+        return new SimulationResult(portfolio.getId(), effective, estimation, timeline, metrics, runtimeMs);
     }
 }
