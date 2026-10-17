@@ -5,7 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -142,5 +144,26 @@ class PortfolioControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.portfolios[0].name").value("Mein Weltportfolio"))
                 .andExpect(jsonPath("$.portfolios[0].positions[0].symbol").value("EUNL"));
+    }
+
+    @Test
+    void aendernLiefert200() throws Exception {
+        Portfolio p = new Portfolio("Neues Portfolio", OWNER);
+        when(authService.authenticate("gueltig")).thenReturn(OWNER);
+        when(portfolioService.update(eq(5L), any(), eq(OWNER))).thenReturn(p);
+
+        mockMvc.perform(put("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\",\"name\":\"Neues Portfolio\",\"positions\":[]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Neues Portfolio"));
+    }
+
+    @Test
+    void loeschenLiefert204() throws Exception {
+        when(authService.authenticate("gueltig")).thenReturn(OWNER);
+
+        mockMvc.perform(delete("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isNoContent());
     }
 }

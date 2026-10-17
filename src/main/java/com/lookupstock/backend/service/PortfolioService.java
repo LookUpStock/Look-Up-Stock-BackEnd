@@ -32,6 +32,25 @@ public class PortfolioService {
 
     @Transactional
     public Portfolio create(PortfolioRequest request, User owner) {
+        Portfolio portfolio = new Portfolio(request.name(), owner);
+        replacePortfolioContents(portfolio, request);
+        return portfolioRepository.save(portfolio);
+    }
+
+    @Transactional
+    public Portfolio update(Long id, PortfolioRequest request, User owner) {
+        Portfolio portfolio = findById(id, owner);
+        portfolio.rename(request.name());
+        replacePortfolioContents(portfolio, request);
+        return portfolioRepository.save(portfolio);
+    }
+
+    @Transactional
+    public void delete(Long id, User owner) {
+        portfolioRepository.delete(findById(id, owner));
+    }
+
+    private void replacePortfolioContents(Portfolio portfolio, PortfolioRequest request) {
         List<PositionRequest> positions = request.positions() == null ? List.of() : request.positions();
         List<Long> ids = positions.stream().map(PositionRequest::assetId).filter(id -> id != null).toList();
         Map<Long, Asset> assets = assetRepository.findAllById(ids).stream()
@@ -45,12 +64,11 @@ public class PortfolioService {
         if (!errors.isEmpty()) {
             throw new ValidationException(Messages.ASSET_NOT_FOUND, errors);
         }
-        Portfolio portfolio = new Portfolio(request.name(), owner);
+        portfolio.clearPositions();
         for (PositionRequest p : positions) {
             portfolio.addPosition(assets.get(p.assetId()), p.weight());
         }
         portfolio.validate();
-        return portfolioRepository.save(portfolio);
     }
 
     @Transactional(readOnly = true)
