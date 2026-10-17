@@ -3,7 +3,9 @@ package com.lookupstock.backend.service;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
-
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,6 +37,7 @@ class AssetServiceTest {
     // Externe Kursdaten-API und Datenbank werden gemockt
     private MarketDataProvider marketDataProvider;
     private AssetRepository assetRepository;
+    private SearchCache searchCache;
 
     // Der echte Service, der getestet wird
     private AssetService service;
@@ -44,7 +47,9 @@ class AssetServiceTest {
     void setUp() {
         marketDataProvider = mock(MarketDataProvider.class);
         assetRepository = mock(AssetRepository.class);
-        service = new AssetService(marketDataProvider, assetRepository);
+        // Echter Cache mit fester Uhr, damit jeder Test mit leerem Cache startet
+        searchCache = new SearchCache(Clock.fixed(Instant.parse("2026-10-17T12:00:00Z"), ZoneOffset.UTC));
+        service = new AssetService(marketDataProvider, assetRepository, searchCache);
 
         // save() gibt die übergebene Anlage unverändert zurück
         when(assetRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -198,6 +203,36 @@ class AssetServiceTest {
         // Act + Assert: genau diese Exception wird weitergereicht
         assertThatThrownBy(() -> service.search("apple", null)).isSameAs(failure);
         verify(assetRepository, never()).save(any());
+    }
+
+    // ---------- Cache für Suchergebnisse (NF-02) ----------
+
+    @Test
+    void search_sameQueryTwice_callsProviderOnlyOnce() {
+        when(marketDataProvider.search("apple")).thenReturn(List.of(hit("AAPL")));
+
+        // Act: zweite Suche mit anderer Schreibweise und anderem Limit
+        service.search("apple", null);
+        List<Asset> second = service.search("Apple ", 5);
+
+        // Assert: Die zweite Suche kommt aus dem Cache, liefert aber dieselben Anlagen
+        verify(marketDataProvider, times(1)).search(any());
+        assertThat(second).extracting(Asset::getSymbol).containsExactly("AAPL");
+    }
+
+    @Test
+    void search_providerUnavailable_isNotCachedAndRetriedNextTime() {
+        UpstreamUnavailableException failure =
+                new UpstreamUnavailableException("Kursdaten-Dienst nicht erreichbar.", null);
+        when(marketDataProvider.search("apple")).thenThrow(failure).thenReturn(List.of(hit("AAPL")));
+
+        // Act: erste Suche scheitert, zweite fragt erneut bei der API nach
+        assertThatThrownBy(() -> service.search("apple", null)).isSameAs(failure);
+        List<Asset> second = service.search("apple", null);
+
+        // Assert: Der Fehler wurde nicht zwischengespeichert
+        verify(marketDataProvider, times(2)).search("apple");
+        assertThat(second).extracting(Asset::getSymbol).containsExactly("AAPL");
     }
 
     // ---------- Hilfsmethoden ----------
