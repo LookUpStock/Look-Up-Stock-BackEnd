@@ -3,9 +3,13 @@ package com.lookupstock.backend.controller;
 import static org.hamcrest.Matchers.endsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -142,5 +146,62 @@ class PortfolioControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.portfolios[0].name").value("Mein Weltportfolio"))
                 .andExpect(jsonPath("$.portfolios[0].positions[0].symbol").value("EUNL"));
+    }
+
+    // ---------- US-06: ändern und löschen ----------
+
+    @Test
+    void aendernLiefert200() throws Exception {
+        Portfolio p = new Portfolio("Neu", OWNER);
+        p.addPosition(new Asset("AAPL", null, "Apple Inc.", "NASDAQ", "USD", "Common Stock", "XNGS"), new BigDecimal("100"));
+        when(authService.authenticate("gueltig")).thenReturn(OWNER);
+        when(portfolioService.update(eq(5L), any(), eq(OWNER))).thenReturn(p);
+
+        mockMvc.perform(put("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\",\"name\":\"Neu\",\"positions\":[{\"assetId\":1,\"weight\":100}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Neu"))
+                .andExpect(jsonPath("$.positions[0].symbol").value("AAPL"));
+    }
+
+    @Test
+    void aendernFremdesPortfolioLiefert404() throws Exception {
+        when(authService.authenticate("gueltig")).thenReturn(OWNER);
+        when(portfolioService.update(eq(5L), any(), eq(OWNER)))
+                .thenThrow(new NotFoundException(Messages.PORTFOLIO_NOT_FOUND));
+
+        mockMvc.perform(put("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\",\"name\":\"Neu\",\"positions\":[]}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void loeschenLiefert204() throws Exception {
+        when(authService.authenticate("gueltig")).thenReturn(OWNER);
+
+        mockMvc.perform(delete("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isNoContent());
+        verify(portfolioService).delete(5L, OWNER);
+    }
+
+    @Test
+    void loeschenFremdesPortfolioLiefert404() throws Exception {
+        when(authService.authenticate("gueltig")).thenReturn(OWNER);
+        doThrow(new NotFoundException(Messages.PORTFOLIO_NOT_FOUND)).when(portfolioService).delete(5L, OWNER);
+
+        mockMvc.perform(delete("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void loeschenOhneAnmeldungLiefert401() throws Exception {
+        when(authService.authenticate(null)).thenThrow(new UnauthorizedException(Messages.NOT_LOGGED_IN));
+
+        mockMvc.perform(delete("/api/v1/portfolios/5"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(portfolioService);
     }
 }

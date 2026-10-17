@@ -12,6 +12,8 @@ import com.lookupstock.backend.exception.ValidationException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Entity
 @Table(name = "portfolio")
@@ -118,6 +120,28 @@ public class Portfolio {
         if (!errors.isEmpty()) {
             throw new ValidationException(errors.get(0).message(), errors);
         }
+    }
+
+    /**
+     * US-06: Übernimmt Name und Positionen aus einem bereits geprüften Entwurf.
+     * Positionen bleibender Anlagen werden geändert statt neu angelegt, weil
+     * (portfolio_id, asset_id) eindeutig ist und Hibernate neue Zeilen vor dem Löschen einfügt.
+     */
+    public void updateFrom(Portfolio draft) {
+        this.name = draft.name;
+        Map<Long, BigDecimal> newWeights = new LinkedHashMap<>();
+        draft.positions.forEach(p -> newWeights.put(p.getAsset().getId(), p.getWeight()));
+
+        positions.removeIf(p -> !newWeights.containsKey(p.getAsset().getId()));
+        for (Position p : positions) {
+            p.setWeight(newWeights.remove(p.getAsset().getId()));
+        }
+        draft.positions.stream()
+                .filter(p -> newWeights.containsKey(p.getAsset().getId()))
+                .forEach(p -> positions.add(new Position(this, p.getAsset(), p.getWeight())));
+
+        // @PreUpdate greift nicht, wenn sich nur Positionen ändern
+        updatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     }
 
     public List<WeightedAsset> getWeights() {

@@ -32,6 +32,30 @@ public class PortfolioService {
 
     @Transactional
     public Portfolio create(PortfolioRequest request, User owner) {
+        return portfolioRepository.save(buildValidated(request, owner));
+    }
+
+    /**
+     * US-06: Ändert Name und Positionen eines eigenen Portfolios.
+     * Fremdes oder unbekanntes Portfolio: 404 (NF-04). Ungültige Eingaben: 400, das Portfolio bleibt unverändert,
+     * weil erst ein Entwurf geprüft und danach übernommen wird.
+     */
+    @Transactional
+    public Portfolio update(Long id, PortfolioRequest request, User owner) {
+        Portfolio portfolio = findById(id, owner);
+        Portfolio draft = buildValidated(request, owner);
+        portfolio.updateFrom(draft);
+        return portfolioRepository.save(portfolio);
+    }
+
+    /** US-06: Löscht ein eigenes Portfolio samt Positionen. Fremdes oder unbekanntes Portfolio: 404 (NF-04). */
+    @Transactional
+    public void delete(Long id, User owner) {
+        portfolioRepository.delete(findById(id, owner));
+    }
+
+    // Anlagen auflösen, Portfolio aufbauen und prüfen (gemeinsam für Anlegen und Ändern)
+    private Portfolio buildValidated(PortfolioRequest request, User owner) {
         List<PositionRequest> positions = request.positions() == null ? List.of() : request.positions();
         List<Long> ids = positions.stream().map(PositionRequest::assetId).filter(id -> id != null).toList();
         Map<Long, Asset> assets = assetRepository.findAllById(ids).stream()
@@ -50,7 +74,7 @@ public class PortfolioService {
             portfolio.addPosition(assets.get(p.assetId()), p.weight());
         }
         portfolio.validate();
-        return portfolioRepository.save(portfolio);
+        return portfolio;
     }
 
     @Transactional(readOnly = true)
