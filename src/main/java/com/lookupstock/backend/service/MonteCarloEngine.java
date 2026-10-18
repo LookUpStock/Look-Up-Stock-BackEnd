@@ -84,4 +84,74 @@ public class MonteCarloEngine {
 
         return paths;
     }
+
+    /** Beide Varianten erhalten je Pfad und Monat exakt dieselben Normalverteilungen. */
+    public ComparisonPaths compare(List<WeightedAsset> first, List<WeightedAsset> second,
+                                   EstimationResult estimation, SimulationParameters parameters) {
+        if (parameters.seed() == null) {
+            throw new IllegalArgumentException("Die Engine benötigt einen gesetzten Seed.");
+        }
+        Model firstModel = model(first, estimation);
+        Model secondModel = model(second, estimation);
+        int pathsCount = parameters.paths();
+        int months = parameters.horizonMonths();
+        double[][] firstPaths = new double[pathsCount][months + 1];
+        double[][] secondPaths = new double[pathsCount][months + 1];
+        int maxAssets = Math.max(firstModel.shares.length, secondModel.shares.length);
+        double[] normals = new double[maxAssets];
+
+        for (int p = 0; p < pathsCount; p++) {
+            double firstValue = parameters.startCapital();
+            double secondValue = parameters.startCapital();
+            firstPaths[p][0] = firstValue;
+            secondPaths[p][0] = secondValue;
+            Random random = new Random(pathSeed(parameters.seed(), p));
+            for (int m = 1; m <= months; m++) {
+                for (int a = 0; a < maxAssets; a++) normals[a] = random.nextGaussian();
+                firstValue = Math.max(0.0, firstValue * (1.0 + portfolioReturn(firstModel, normals)))
+                        + parameters.monthlyContribution();
+                secondValue = Math.max(0.0, secondValue * (1.0 + portfolioReturn(secondModel, normals)))
+                        + parameters.monthlyContribution();
+                firstPaths[p][m] = firstValue;
+                secondPaths[p][m] = secondValue;
+            }
+        }
+        return new ComparisonPaths(firstPaths, secondPaths);
+    }
+
+    private static Model model(List<WeightedAsset> weights, EstimationResult estimation) {
+        int count = weights.size();
+        double[] shares = new double[count];
+        double[] means = new double[count];
+        double[] volatilities = new double[count];
+        for (int i = 0; i < count; i++) {
+            WeightedAsset weighted = weights.get(i);
+            Estimate estimate = estimation.findByAssetId(weighted.asset().getId());
+            shares[i] = weighted.share().doubleValue();
+            means[i] = estimate.annualReturn() / MONTHS_PER_YEAR;
+            volatilities[i] = estimate.annualVolatility() / Math.sqrt(MONTHS_PER_YEAR);
+        }
+        return new Model(shares, means, volatilities);
+    }
+
+    private static double portfolioReturn(Model model, double[] normals) {
+        double result = 0.0;
+        for (int a = 0; a < model.shares.length; a++) {
+            result += model.shares[a] * (model.means[a] + model.volatilities[a] * normals[a]);
+        }
+        return result;
+    }
+
+    private static long pathSeed(long seed, int path) {
+        long value = seed ^ (0x9E3779B97F4A7C15L * (path + 1L));
+        value = (value ^ (value >>> 30)) * 0xBF58476D1CE4E5B9L;
+        value = (value ^ (value >>> 27)) * 0x94D049BB133111EBL;
+        return value ^ (value >>> 31);
+    }
+
+    public record ComparisonPaths(double[][] first, double[][] second) {
+    }
+
+    private record Model(double[] shares, double[] means, double[] volatilities) {
+    }
 }

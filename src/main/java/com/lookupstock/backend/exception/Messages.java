@@ -55,6 +55,8 @@ public final class Messages {
     public static final String HORIZON_INVALID = "Der Anlagehorizont muss eine ganze Zahl von 1 bis 40 Jahren sein.";
     public static final String PATHS_INVALID = "Die Anzahl der Simulationspfade muss zwischen 1.000 und 50.000 liegen.";
     public static final String SEED_INVALID = "Der Seed muss eine ganze Zahl sein.";
+    public static final String COMPARISON_ITEMS_REQUIRED = "Bitte genau zwei Einträge zum Vergleich auswählen.";
+    public static final String COMPARISON_ITEM_INVALID = "Jeder Eintrag braucht genau eine portfolioId oder assetId.";
     public static final String INSUFFICIENT_DATA_DETAIL = "Weniger als 3 Jahre Kursdaten.";
     public static final String NO_PRICE_DATA_DETAIL = "Keine Kursdaten beim Anbieter verfügbar.";
 
