@@ -33,6 +33,7 @@ import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
+import com.lookupstock.backend.model.SimulationRun;
 import com.lookupstock.backend.model.TimelinePoint;
 import com.lookupstock.backend.model.User;
 
@@ -163,5 +164,26 @@ class SimulationServiceTest {
         assertThatThrownBy(() -> service.simulate(5L, params(42L), OWNER))
                 .isInstanceOf(InsufficientDataException.class);
         verifyNoInteractions(engine);
+    }
+
+    @Test
+    void runLiefertVerlaufKennzahlenUndEndwerte() {
+        double[][] twoPaths = new double[][] { { 10_000, 10_500, 11_000 }, { 10_000, 9_500, 9_000 } };
+        SimulationParameters effective = params(42L);
+        when(engine.simulate(anyList(), eq(estimation), eq(effective))).thenReturn(twoPaths);
+        when(metrics.percentiles(twoPaths)).thenReturn(timeline);
+        when(metrics.metrics(twoPaths, effective)).thenReturn(sampleMetrics);
+
+        SimulationRun run = service.run(portfolio.getWeights(), estimation, effective);
+
+        assertThat(run.timeline()).isEqualTo(timeline);
+        assertThat(run.metrics()).isEqualTo(sampleMetrics);
+        assertThat(run.endValues()).containsExactly(11_000, 9_000);
+    }
+
+    @Test
+    void ensureSeedBehaeltVorhandenenSeedUndErgaenztFehlenden() {
+        assertThat(service.ensureSeed(params(42L)).seed()).isEqualTo(42L);
+        assertThat(service.ensureSeed(params(null)).seed()).isEqualTo(731L);
     }
 }

@@ -16,6 +16,7 @@ import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
+import com.lookupstock.backend.model.SimulationRun;
 import com.lookupstock.backend.model.TimelinePoint;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.model.WeightedAsset;
@@ -79,9 +80,7 @@ public class SimulationService {
         Portfolio portfolio = portfolioService.findById(portfolioId, user);
 
         // 3. Ohne Seed einen erzeugen; er wird im Ergebnis zurückgegeben (NF-08)
-        SimulationParameters effective = parameters.seed() != null
-                ? parameters
-                : parameters.withSeed(seedGenerator.getAsLong());
+        SimulationParameters effective = ensureSeed(parameters);
 
         long start = System.nanoTime();
 
@@ -93,11 +92,39 @@ public class SimulationService {
         EstimationResult estimation = parameterEstimator.estimate(assets);
 
         // 6. Pfade simulieren, Perzentile und Kennzahlen berechnen
-        double[][] paths = engine.simulate(weights, estimation, effective);
-        List<TimelinePoint> timeline = metricsCalculator.percentiles(paths);
-        Metrics metrics = metricsCalculator.metrics(paths, effective);
+        SimulationRun run = run(weights, estimation, effective);
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
-        return new SimulationResult(portfolio.getId(), effective, estimation, timeline, metrics, runtimeMs);
+        return new SimulationResult(portfolio.getId(), effective, estimation, run.timeline(), run.metrics(), runtimeMs);
+    }
+
+    /**
+     * Setzt einen Seed, falls keiner angegeben ist (NF-08). Auch der Vergleich nutzt diese Methode,
+     * damit die Regel nur an einer Stelle steht (ADR-05).
+     */
+    public SimulationParameters ensureSeed(SimulationParameters parameters) {
+        return parameters.seed() != null
+                ? parameters
+                : parameters.withSeed(seedGenerator.getAsLong());
+    }
+
+    /**
+     * Simuliert einen Satz Gewichtungen mit fertiger Schätzung und liefert Verlauf, Kennzahlen und Endwerte.
+     * Wird von simulate (US-04) und vom ComparisonService (US-07, ADR-05) gemeinsam genutzt.
+     * Die Engine erzeugt je Aufruf ein neues Random(seed); gleicher Seed heißt daher gleiche Zufallszahlen.
+     *
+     * @param parameters geprüfte Parameter mit gesetztem Seed
+     */
+    public SimulationRun run(List<WeightedAsset> weights, EstimationResult estimation, SimulationParameters parameters) {
+        double[][] paths = engine.simulate(weights, estimation, parameters);
+        List<TimelinePoint> timeline = metricsCalculator.percentiles(paths);
+        Metrics metrics = metricsCalculator.metrics(paths, parameters);
+
+        // Endwert je Pfad, Grundlage für probabilityAOutperformsB im Vergleich
+        double[] endValues = new double[paths.length];
+        for (int p = 0; p < paths.length; p++) {
+            endValues[p] = paths[p][paths[p].length - 1];
+        }
+        return new SimulationRun(timeline, metrics, endValues);
     }
 }

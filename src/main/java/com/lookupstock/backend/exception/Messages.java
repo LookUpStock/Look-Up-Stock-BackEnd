@@ -59,6 +59,15 @@ public final class Messages {
     public static final String INSUFFICIENT_DATA_DETAIL = "Weniger als 3 Jahre Kursdaten.";
     public static final String NO_PRICE_DATA_DETAIL = "Keine Kursdaten beim Anbieter verfügbar.";
 
+    // Vergleich (US-07, ADR-05)
+    public static final String COMPARISON_ITEM_COUNT = "Bitte genau zwei Einträge zum Vergleich auswählen.";
+    public static final String COMPARISON_ITEM_INVALID = "Jeder Eintrag braucht entweder ein Portfolio oder eine Anlage.";
+    public static final String COMPARISON_ASSET_NOT_FOUND = "Anlage nicht gefunden.";
+
+    public static String itemCountDetail(int count) {
+        return "Ausgewählt: " + count + ".";
+    }
+
     // E6: alle betroffenen Anlagen werden mit Namen genannt
     public static String insufficientData(List<String> assetNames) {
         return "Für folgende Anlagen liegen weniger als 3 Jahre Kursdaten vor: "
