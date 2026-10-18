@@ -2,12 +2,18 @@ package com.lookupstock.backend.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -21,21 +27,26 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.lookupstock.backend.service.SavedSimulationService;
+import com.lookupstock.backend.dto.SimulationResponse;
+import com.lookupstock.backend.dto.StoredSimulationResult;
 import com.lookupstock.backend.exception.GlobalExceptionHandler;
 import com.lookupstock.backend.exception.InsufficientDataException;
 import com.lookupstock.backend.exception.Messages;
+import com.lookupstock.backend.exception.NotFoundException;
 import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Estimate;
 import com.lookupstock.backend.model.EstimationResult;
 import com.lookupstock.backend.model.Metrics;
+import com.lookupstock.backend.model.Portfolio;
+import com.lookupstock.backend.model.SavedSimulation;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.AuthService;
+import com.lookupstock.backend.service.SavedSimulationService;
 import com.lookupstock.backend.service.SimulationService;
 
 @WebMvcTest(SimulationController.class)
@@ -53,6 +64,7 @@ class SimulationControllerTest {
     @MockitoBean
     private AuthService authService;
 
+    // Neue Abhängigkeit des Controllers (BE #68); ohne Mock startet der Web-Kontext im Test nicht
     @MockitoBean
     private SavedSimulationService savedSimulationService;
 
@@ -145,5 +157,158 @@ class SimulationControllerTest {
         mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("20", "42")))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("UPSTREAM_UNAVAILABLE"));
+    }
+
+    // ---------- US-08: Simulationen speichern (BE #68) ----------
+
+    // Gerechnetes Ergebnis wie in simulationLiefert200MitErgebnis
+    private SimulationResult sampleResult() {
+        SimulationParameters params = new SimulationParameters(10_000.0, 200.0, 20, 10_000, 42L);
+        return new SimulationResult(5L, params,
+                new EstimationResult(LocalDate.of(2016, 10, 1), LocalDate.of(2026, 9, 1),
+                        List.of(new Estimate(asset, 0.07, 0.15))),
+                List.of(new TimelinePoint(0, 10_000, 10_000, 10_000), new TimelinePoint(1, 9_800, 10_250, 10_700)),
+                new Metrics(58_000, 10_250, 9_800, 10_700, 0, 0.3, null),
+                123);
+    }
+
+    // Gespeicherte Simulation mit ID 12, wie sie aus der Datenbank käme
+    private SavedSimulation sampleSaved() {
+        Portfolio portfolio = new Portfolio("Weltportfolio", OWNER);
+        ReflectionTestUtils.setField(portfolio, "id", 5L);
+        SavedSimulation saved = new SavedSimulation(OWNER, portfolio, "Mein Plan",
+                BigDecimal.valueOf(10_000), BigDecimal.valueOf(200), 20, 10_000, 42L, null, "{}", 123L);
+        ReflectionTestUtils.setField(saved, "id", 12L);
+        ReflectionTestUtils.setField(saved, "createdAt", Instant.parse("2026-10-18T10:00:00Z"));
+        return saved;
+    }
+
+    private static String saveBody(String nameJson) {
+        return """
+                {"token":"gueltig","portfolioId":5,"parameters":{"startCapital":10000,"monthlyContribution":200,\
+                "horizonYears":20,"paths":10000,"seed":42},"save":true,"name":%s}""".formatted(nameJson);
+    }
+
+    @Test
+    void simulateWithSave_returns201WithIdNameAndCreatedAt() throws Exception {
+        SimulationResult result = sampleResult();
+        SavedSimulation saved = sampleSaved();
+        when(simulationService.simulate(any(), any(), eq(OWNER))).thenReturn(result);
+        when(savedSimulationService.save(result, "Mein Plan", OWNER)).thenReturn(saved);
+        when(savedSimulationService.readResult(saved))
+                .thenReturn(StoredSimulationResult.from(SimulationResponse.from(result)));
+
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .content(saveBody("\"  Mein Plan  \"")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(12))
+                .andExpect(jsonPath("$.name").value("Mein Plan"))
+                .andExpect(jsonPath("$.portfolioId").value(5))
+                .andExpect(jsonPath("$.parameters.seed").value(42))
+                .andExpect(jsonPath("$.timeline[1].p50").value(10_250.0))
+                .andExpect(jsonPath("$.createdAt").value("2026-10-18T10:00:00Z"));
+    }
+
+    @Test
+    void simulateWithoutSave_storesNothing() throws Exception {
+        when(simulationService.simulate(any(), any(), eq(OWNER))).thenReturn(sampleResult());
+
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("20", "42")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").isEmpty())
+                .andExpect(jsonPath("$.name").isEmpty());
+        verify(savedSimulationService, never()).save(any(), any(), any());
+    }
+
+    @Test
+    void simulateWithSaveWithoutName_returns400BeforeCalculating() throws Exception {
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(saveBody("null")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.message").value(Messages.NAME_INVALID))
+                .andExpect(jsonPath("$.error.details[0].field").value("name"));
+        verifyNoInteractions(simulationService, savedSimulationService);
+    }
+
+    @Test
+    void simulateWithSaveAndTooLongName_returns400() throws Exception {
+        String tooLong = "\"" + "a".repeat(101) + "\"";
+
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(saveBody(tooLong)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value(Messages.NAME_INVALID));
+        verifyNoInteractions(simulationService, savedSimulationService);
+    }
+
+    @Test
+    void list_returnsOwnSimulations() throws Exception {
+        when(savedSimulationService.findAll(OWNER)).thenReturn(List.of(sampleSaved()));
+
+        mockMvc.perform(post("/api/v1/simulations/list").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.simulations[0].id").value(12))
+                .andExpect(jsonPath("$.simulations[0].name").value("Mein Plan"))
+                .andExpect(jsonPath("$.simulations[0].portfolioId").value(5))
+                .andExpect(jsonPath("$.simulations[0].createdAt").value("2026-10-18T10:00:00Z"));
+    }
+
+    @Test
+    void listWithoutToken_returns401() throws Exception {
+        when(authService.authenticate(null)).thenThrow(new UnauthorizedException(Messages.NOT_LOGGED_IN));
+
+        mockMvc.perform(post("/api/v1/simulations/list"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        verifyNoInteractions(savedSimulationService);
+    }
+
+    @Test
+    void details_returnsStoredResultWithoutCalculating() throws Exception {
+        SavedSimulation saved = sampleSaved();
+        when(savedSimulationService.findById(12L, OWNER)).thenReturn(saved);
+        when(savedSimulationService.readResult(saved))
+                .thenReturn(StoredSimulationResult.from(SimulationResponse.from(sampleResult())));
+
+        mockMvc.perform(post("/api/v1/simulations/12/details").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(12))
+                .andExpect(jsonPath("$.name").value("Mein Plan"))
+                .andExpect(jsonPath("$.parameters.startCapital").value(10_000.0))
+                .andExpect(jsonPath("$.metrics.medianEndValue").value(10_250.0))
+                .andExpect(jsonPath("$.runtimeMs").value(123));
+        verifyNoInteractions(simulationService);
+    }
+
+    @Test
+    void detailsOfForeignSimulation_returns404() throws Exception {
+        when(savedSimulationService.findById(12L, OWNER))
+                .thenThrow(new NotFoundException(Messages.SIMULATION_NOT_FOUND));
+
+        mockMvc.perform(post("/api/v1/simulations/12/details").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.error.message").value(Messages.SIMULATION_NOT_FOUND));
+    }
+
+    @Test
+    void delete_returns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/simulations/12").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isNoContent());
+        verify(savedSimulationService).delete(12L, OWNER);
+    }
+
+    @Test
+    void deleteOfForeignSimulation_returns404() throws Exception {
+        doThrow(new NotFoundException(Messages.SIMULATION_NOT_FOUND))
+                .when(savedSimulationService).delete(12L, OWNER);
+
+        mockMvc.perform(delete("/api/v1/simulations/12").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"gueltig\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.message").value(Messages.SIMULATION_NOT_FOUND));
     }
 }
