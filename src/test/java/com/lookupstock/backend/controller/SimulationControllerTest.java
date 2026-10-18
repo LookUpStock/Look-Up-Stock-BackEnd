@@ -21,6 +21,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.lookupstock.backend.service.SavedSimulationService;
 import com.lookupstock.backend.exception.GlobalExceptionHandler;
 import com.lookupstock.backend.exception.InsufficientDataException;
 import com.lookupstock.backend.exception.Messages;
@@ -51,6 +52,9 @@ class SimulationControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private SavedSimulationService savedSimulationService;
 
     private Asset asset;
 
