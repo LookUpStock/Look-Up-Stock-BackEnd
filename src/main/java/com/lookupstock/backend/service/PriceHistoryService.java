@@ -50,9 +50,11 @@ public class PriceHistoryService {
     public List<PricePoint> getMonthlyPrices(Asset asset) {
         Instant now = clock.instant();
 
-        Optional<PriceCache.CachedPrices> cached = priceCache.load(asset.getId());
-        if (cached.isPresent() && isFresh(cached.get().fetchedAt(), now)) {
-            return cached.get().prices();
+        if (asset.getId() != null) {
+            Optional<PriceCache.CachedPrices> cached = priceCache.load(asset.getId());
+            if (cached.isPresent() && isFresh(cached.get().fetchedAt(), now)) {
+                return cached.get().prices();
+            }
         }
 
         // wirft UpstreamUnavailableException, wenn Twelve Data nicht erreichbar ist (503)
@@ -64,10 +66,30 @@ public class PriceHistoryService {
                 .map(p -> new PricePoint(p.date(), p.close().setScale(PRICE_SCALE, RoundingMode.HALF_UP)))
                 .sorted(Comparator.comparing(PricePoint::date))
                 .toList();
-        if (!sorted.isEmpty()) {
+        if (asset.getId() != null && !sorted.isEmpty()) {
             priceCache.replace(asset.getId(), sorted, now);
         }
         return sorted;
+    }
+
+    /**
+     * Liefert Kursdaten für Kennzahlen. Monatliche Daten verwenden denselben Cache
+     * wie die Simulation; andere Intervalle werden mit dem MIC-Code der Anlage
+     * beim Anbieter abgefragt.
+     */
+    public List<PricePoint> getPrices(Asset asset, String interval, int outputSize) {
+        if (MONTHLY_INTERVAL.equals(interval)) {
+            List<PricePoint> prices = getMonthlyPrices(asset);
+            int start = Math.max(0, prices.size() - outputSize);
+            return prices.subList(start, prices.size());
+        }
+
+        return marketDataProvider.getHistoricalPrices(
+                        asset.getSymbol(), asset.getMicCode(), interval, outputSize).stream()
+                .filter(p -> p.date() != null && p.close() != null)
+                .map(p -> new PricePoint(p.date(), p.close().setScale(PRICE_SCALE, RoundingMode.HALF_UP)))
+                .sorted(Comparator.comparing(PricePoint::date))
+                .toList();
     }
 
     // „jünger als 24 h“: genau 24 h alt gilt bereits als veraltet

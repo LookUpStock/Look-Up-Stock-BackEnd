@@ -8,10 +8,11 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.lookupstock.backend.client.MarketDataProvider;
 import com.lookupstock.backend.client.PricePoint;
 import com.lookupstock.backend.dto.AssetStatsResponse;
 import com.lookupstock.backend.exception.ValidationException;
+import com.lookupstock.backend.model.Asset;
+import com.lookupstock.backend.repository.AssetRepository;
 
 @Service
 public class AssetStatisticsService {
@@ -19,10 +20,12 @@ public class AssetStatisticsService {
     private static final int MINIMUM_PRICE_POINTS = 2;
     private static final int TRADING_DAYS_PER_YEAR = 252;
 
-    private final MarketDataProvider marketDataProvider;
+    private final PriceHistoryService priceHistoryService;
+    private final AssetRepository assetRepository;
 
-    public AssetStatisticsService(MarketDataProvider marketDataProvider) {
-        this.marketDataProvider = marketDataProvider;
+    public AssetStatisticsService(PriceHistoryService priceHistoryService, AssetRepository assetRepository) {
+        this.priceHistoryService = priceHistoryService;
+        this.assetRepository = assetRepository;
     }
 
     public AssetStatsResponse calculate(String symbol, String interval, Integer outputSize) {
@@ -39,7 +42,9 @@ public class AssetStatisticsService {
                     List.of(new ValidationException.FieldError("outputSize", "Für die Berechnung werden mindestens 2 Kurse benötigt.")));
         }
 
-        List<PricePoint> prices = marketDataProvider.getHistoricalPrices(normalizedSymbol, normalizedInterval, size);
+        Asset asset = assetRepository.findFirstBySymbolIgnoreCaseOrderByIdAsc(normalizedSymbol)
+                .orElseGet(() -> new Asset(normalizedSymbol, null, normalizedSymbol, null, null, null, null));
+        List<PricePoint> prices = priceHistoryService.getPrices(asset, normalizedInterval, size);
         if (prices == null || prices.size() < MINIMUM_PRICE_POINTS) {
             throw new ValidationException("Für das Symbol wurden zu wenige historische Kurse gefunden.",
                     List.of(new ValidationException.FieldError("symbol", "Für das Symbol wurden zu wenige historische Kurse gefunden.")));
