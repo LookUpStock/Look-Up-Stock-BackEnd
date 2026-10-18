@@ -38,6 +38,7 @@ public final class Messages {
     public static final String DUPLICATE_ASSET = "Jede Anlage darf nur einmal im Portfolio enthalten sein.";
     public static final String ASSET_NOT_FOUND = "Eine Anlage wurde nicht gefunden.";
     public static final String PORTFOLIO_NOT_FOUND = "Portfolio nicht gefunden.";
+    public static final String SIMULATION_NOT_FOUND = "Simulation nicht gefunden.";
 
     // Long statt long: assetId kann im Request fehlen (null)
     public static String unknownAssetDetail(Long assetId) {

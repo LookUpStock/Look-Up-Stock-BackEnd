@@ -1,26 +1,30 @@
 package com.lookupstock.backend.dto;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
 import com.lookupstock.backend.model.EstimationResult;
 import com.lookupstock.backend.model.Metrics;
+import com.lookupstock.backend.model.SavedSimulation;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
 
 /**
- * Antwort von POST /api/v1/simulations laut API-Design.
- * id ist null, solange Simulationen nicht gespeichert werden (US-08, Sprint 3);
+ * Antwort von POST /api/v1/simulations und POST /api/v1/simulations/{id}/details laut API-Design.
+ * id, name und createdAt sind null, wenn die Simulation nicht gespeichert wurde (save: false).
  */
 public record SimulationResponse(
         Long id,
+        String name,
         Long portfolioId,
         ParametersResponse parameters,
         EstimatesResponse estimates,
         List<TimelinePoint> timeline,
         Metrics metrics,
-        long runtimeMs) {
+        long runtimeMs,
+        Instant createdAt) {
 
     public record ParametersResponse(double startCapital, double monthlyContribution,
                                      int horizonYears, int paths, long seed, Double targetAmount) {
@@ -48,14 +52,35 @@ public record SimulationResponse(
     public record AssetEstimate(Long assetId, double annualReturn, double annualVolatility) {
     }
 
+    // Frisch gerechnete, nicht gespeicherte Simulation
     public static SimulationResponse from(SimulationResult result) {
         return new SimulationResponse(
+                null,
                 null,
                 result.portfolioId(),
                 ParametersResponse.from(result.parameters()),
                 EstimatesResponse.from(result.estimation()),
                 result.timeline(),
                 result.metrics(),
-                result.runtimeMs());
+                result.runtimeMs(),
+                null);
+    }
+
+    // Gespeicherte Simulation: Parameter aus den Spalten, Ergebnis aus der JSON-Spalte, ohne Neuberechnung
+    public static SimulationResponse from(SavedSimulation saved, StoredSimulationResult stored) {
+        return new SimulationResponse(
+                saved.getId(),
+                saved.getName(),
+                saved.getPortfolio().getId(),
+                new ParametersResponse(
+                        saved.getStartCapital().doubleValue(),
+                        saved.getMonthlyContribution().doubleValue(),
+                        saved.getHorizonYears(), saved.getPaths(), saved.getSeed(),
+                        saved.getTargetAmount() == null ? null : saved.getTargetAmount().doubleValue()),
+                stored.estimates(),
+                stored.timeline(),
+                stored.metrics(),
+                saved.getRuntimeMs(),
+                saved.getCreatedAt());
     }
 }
