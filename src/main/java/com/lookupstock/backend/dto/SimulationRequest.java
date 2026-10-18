@@ -12,7 +12,31 @@ import com.lookupstock.backend.model.SimulationParameters;
  * Die Zahlen kommen als BigDecimal an, damit Kommazahlen bei Horizont, Pfaden und Seed
  * abgelehnt werden (AT-04-17, AT-04-31) statt still abgeschnitten zu werden.
  */
-public record SimulationRequest(String token, Long portfolioId, Parameters parameters) {
+public record SimulationRequest(String token, Long portfolioId, Parameters parameters,
+                                Boolean save, String name) {
+
+    private static final int MAX_NAME_LENGTH = 100;
+
+    // save ist optional; fehlt es, wird nur gerechnet und nicht gespeichert
+    public boolean shouldSave() {
+        return Boolean.TRUE.equals(save);
+    }
+
+    /**
+     * Liefert den getrimmten Namen, wenn gespeichert werden soll, sonst null.
+     * Bei save: true ist name Pflicht und höchstens 100 Zeichen lang (API-Design, wie beim Portfolio-Namen).
+     */
+    public String validatedName() {
+        if (!shouldSave()) {
+            return null;
+        }
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty() || trimmed.length() > MAX_NAME_LENGTH) {
+            throw new ValidationException(Messages.NAME_INVALID, List.of(
+                    new ValidationException.FieldError("name", Messages.NAME_INVALID)));
+        }
+        return trimmed;
+    }
 
     // targetAmount ist optional (US-05); Kommazahlen sind erlaubt, da es ein Eurobetrag ist
     public record Parameters(BigDecimal startCapital, BigDecimal monthlyContribution,
