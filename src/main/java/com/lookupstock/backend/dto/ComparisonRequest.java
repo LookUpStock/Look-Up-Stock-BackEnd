@@ -9,7 +9,7 @@ import com.lookupstock.backend.model.ComparisonEntry;
  * wie bei POST /simulations (SimulationRequest.Parameters).
  * save und name sind für das Speichern vorgesehen (US-08, BE #68) und werden noch nicht ausgewertet.
  */
-public record ComparisonRequest(String token, List<Item> items, SimulationRequest.Parameters parameters,
+public record ComparisonRequest(List<Item> items, SimulationRequest.Parameters parameters,
                                 Boolean save, String name) {
 
     public record Item(String label, Long portfolioId, Long assetId) {

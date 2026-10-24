@@ -9,7 +9,6 @@ import com.lookupstock.backend.dto.ComparisonRequest;
 import com.lookupstock.backend.dto.ComparisonResponse;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.User;
-import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.ComparisonService;
 
 /**
@@ -20,16 +19,13 @@ import com.lookupstock.backend.service.ComparisonService;
 public class ComparisonController {
 
     private final ComparisonService comparisonService;
-    private final AuthService authService;
 
-    public ComparisonController(ComparisonService comparisonService, AuthService authService) {
+    public ComparisonController(ComparisonService comparisonService) {
         this.comparisonService = comparisonService;
-        this.authService = authService;
     }
 
     @PostMapping
-    public ComparisonResponse compare(@RequestBody ComparisonRequest request) {
-        User user = authService.authenticate(request.token());
+    public ComparisonResponse compare(@CurrentUser User user, @RequestBody ComparisonRequest request) {
         SimulationParameters parameters = request.parameters() == null
                 ? null
                 : request.parameters().toSimulationParameters();

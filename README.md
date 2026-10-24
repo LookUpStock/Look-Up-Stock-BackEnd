@@ -1,6 +1,6 @@
 # LookUpStock – Backend
 
-REST-API für LookUpStock: Anlagen suchen, Portfolios verwalten und Nutzer registrieren und anmelden.
+REST-API für LookUpStock: Anlagen suchen, Portfolios verwalten, Monte-Carlo-Simulationen rechnen und speichern, Portfolios und Anlagen vergleichen sowie Nutzer registrieren und anmelden.
 
 ## Voraussetzungen
 
@@ -36,8 +36,12 @@ Flyway legt die Tabellen beim Start über die Migrationen in `src/main/resources
 | `V1__portfolio_tabellen.sql` | Tabellen `asset`, `portfolio`, `position` |
 | `V2__asset_mic_code.sql` | Spalte `mic_code` und Eindeutigkeit (Symbol, MIC) für `asset` |
 | `V3__nutzer_und_token.sql` | Tabellen `app_user` und `auth_token` |
+| `V4__portfolio_nutzer.sql` | Spalte `user_id` in `portfolio` (Besitzer, NF-04) |
+| `V5__kursdaten_geladen.sql` | leer (Platzhalter, bereits angewendet, nicht ändern) |
+| `V6__kursdaten_cache.sql` | Tabelle `price_history` (Kurs-Cache, NF-07) |
+| `V7__simulation_speichern.sql` | Tabelle `simulation` (gespeicherte Simulationen, US-08) |
 
-Hibernate ändert das Schema nicht, sondern prüft nur, ob es zu den Entities passt (`spring.jpa.hibernate.ddl-auto=validate`). Schemaänderungen daher immer als neue Migration `V4__...sql` anlegen, bestehende Migrationen nicht ändern.
+Hibernate ändert das Schema nicht, sondern prüft nur, ob es zu den Entities passt (`spring.jpa.hibernate.ddl-auto=validate`). Schemaänderungen daher immer als neue Migration `V8__...sql` anlegen, bestehende Migrationen nicht ändern.
 
 Zeitstempel werden in UTC gespeichert (`hibernate.jdbc.time_zone=UTC`) und in der API als ISO-8601 mit `Z` ausgegeben, z. B. `2026-09-30T10:12:00Z`.
 
@@ -73,20 +77,29 @@ Ohne `TWELVE_DATA_API_KEY` startet die Anwendung nicht. Ohne passendes `DB_PASSW
 
 Basis-URL: `/api/v1`. Verbindlich ist das API-Design im Repository `Look-Up-Stock-Docs`; die Tabelle zeigt den aktuellen Stand im Code.
 
-| Methode | Pfad | Beschreibung | Token nötig |
+Geschützte Endpunkte erwarten den Header `Authorization: Bearer <token>` (ADR-06). Fehlt er oder ist das Token ungültig oder abgelaufen, antwortet die API mit `401`.
+
+| Methode | Pfad | Beschreibung | Anmeldung |
 |---|---|---|---|
-| GET | `/api/v1/ping` | Erreichbarkeitstest, Antwort `{"status":"ok"}` | nein |
+| GET | `/api/v1/ping` | Erreichbarkeitstest | nein |
 | POST | `/api/v1/auth/register` | Nutzer registrieren (E-Mail, Passwort) | nein |
 | POST | `/api/v1/auth/login` | Anmelden, liefert Token und Ablaufzeit (24 h) | nein |
-| POST | `/api/v1/auth/logout` | Token ungültig machen (Token im Body) | ja |
-| GET | `/api/v1/assets/search?q=…&limit=…` | Anlagen über Twelve Data suchen (`limit` 1–25, Standard 10) | nein |
-| POST | `/api/v1/portfolios` | Portfolio anlegen | nein* |
-| POST | `/api/v1/portfolios/list` | Alle Portfolios auflisten | nein* |
-| POST | `/api/v1/portfolios/{portfolioId}/details` | Ein Portfolio mit Positionen | nein* |
+| POST | `/api/v1/auth/logout` | Token ungültig machen, immer `204` | Header optional |
+| GET | `/api/v1/assets/search?q=…&limit=…` | Anlagen suchen (`limit` 1–25, Standard 10) | nein |
+| GET | `/api/v1/assets/{symbol}/stats` | Kennzahlen einer Anlage | nein |
+| GET | `/api/v1/assets/{symbol}/prices` | Kursverlauf einer Anlage | nein |
+| POST | `/api/v1/portfolios` | Portfolio anlegen | ja |
+| GET | `/api/v1/portfolios` | Eigene Portfolios auflisten | ja |
+| GET | `/api/v1/portfolios/{id}` | Ein Portfolio mit Positionen | ja |
+| PUT | `/api/v1/portfolios/{id}` | Portfolio ändern (US-06) | ja |
+| DELETE | `/api/v1/portfolios/{id}` | Portfolio löschen (US-06) | ja |
+| POST | `/api/v1/simulations` | Simulation rechnen, mit `save: true` speichern | ja |
+| GET | `/api/v1/simulations` | Gespeicherte Simulationen auflisten (US-08) | ja |
+| GET | `/api/v1/simulations/{id}` | Gespeicherte Simulation abrufen | ja |
+| DELETE | `/api/v1/simulations/{id}` | Gespeicherte Simulation löschen | ja |
+| POST | `/api/v1/comparisons` | Zwei Einträge vergleichen (US-07) | ja |
 
-\* Die Portfolio-Endpunkte nehmen ein Feld `token` im Body an, prüfen es aber noch nicht.
-
-Außerdem: `GET /actuator/health` liefert den Zustand der Anwendung (`{"status":"UP"}`).
+Außerdem: `GET /api/health` und `GET /actuator/health` liefern den Zustand der Anwendung.
 
 ## Projektstruktur
 
@@ -94,9 +107,9 @@ Pakete unter `src/main/java/com/lookupstock/backend/`:
 
 | Paket | Inhalt |
 |---|---|
-| `config` | Konfiguration: CORS-Regeln, Uhr (`Clock`) und Passwort-Hashing (BCrypt). |
-| `controller` | REST-Controller, nehmen Anfragen unter `/api/v1` an und geben DTOs zurück. |
-| `service` | Fachlogik, z. B. Registrierung und Anmeldung, Suche und Portfolios. |
+| `config` | Konfiguration: CORS-Regeln, Uhr (`Clock`), Passwort-Hashing (BCrypt) und Registrierung der Anmeldeprüfung (`WebConfig`). |
+| `controller` | REST-Controller unter `/api/v1`; `@CurrentUser` und `CurrentUserArgumentResolver` lesen den angemeldeten Nutzer aus dem Header `Authorization`. |
+| `service` | Fachlogik, z. B. Registrierung und Anmeldung, Suche, Portfolios, Kurs-Cache, Monte-Carlo-Simulation, gespeicherte Simulationen und Vergleiche. |
 | `repository` | Spring-Data-JPA-Repositories für den Datenbankzugriff. |
 | `model` | JPA-Entities wie `Portfolio`, `Asset`, `User`, `AuthToken`, inklusive fachlicher Prüfregeln. |
 | `dto` | Request- und Response-Objekte der API, einschließlich des einheitlichen Fehlerformats. |

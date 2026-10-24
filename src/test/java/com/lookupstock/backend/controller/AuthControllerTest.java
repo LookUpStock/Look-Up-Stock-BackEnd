@@ -87,10 +87,18 @@ class AuthControllerTest {
     @Test
     void logout_liefert204() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"abc\"}"))
+                        .header("Authorization", "Bearer abc"))
                 .andExpect(status().isNoContent());
 
         verify(authService).logout("abc");
+    }
+
+    @Test
+    void logout_ohneHeader_liefert204() throws Exception {
+        // idempotent: auch ohne Anmeldung kein Fehler
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isNoContent());
+
+        verify(authService).logout(null);
     }
 }

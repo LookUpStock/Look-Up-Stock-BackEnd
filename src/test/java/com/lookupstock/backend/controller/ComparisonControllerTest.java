@@ -26,7 +26,6 @@ import com.lookupstock.backend.exception.GlobalExceptionHandler;
 import com.lookupstock.backend.exception.InsufficientDataException;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
-import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
@@ -68,7 +67,7 @@ class ComparisonControllerTest {
 
     private static String body(String seed) {
         return """
-                {"token":"gueltig","items":[{"label":"Mein Weltportfolio","portfolioId":5},{"assetId":31}],\
+                {"items":[{"label":"Mein Weltportfolio","portfolioId":5},{"assetId":31}],\
                 "parameters":{"startCapital":10000,"monthlyContribution":200,"horizonYears":20,"paths":10000,\
                 "seed":%s},"save":false,"name":null}""".formatted(seed);
     }
@@ -91,7 +90,8 @@ class ComparisonControllerTest {
                 1620, Instant.parse("2026-10-20T09:00:00Z"));
         when(comparisonService.compare(eq(entries), eq(params), eq(OWNER))).thenReturn(result);
 
-        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON).content(body("42")))
+        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("42")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").doesNotExist())
                 .andExpect(jsonPath("$.parameters.seed").value(42))
@@ -111,7 +111,8 @@ class ComparisonControllerTest {
 
     @Test
     void kommazahlBeimSeedLiefert400WieBeiDerSimulation() throws Exception {
-        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON).content(body("4.2")))
+        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("4.2")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.message").value(Messages.SEED_INVALID));
@@ -124,7 +125,8 @@ class ComparisonControllerTest {
                 Messages.COMPARISON_ITEM_COUNT,
                 List.of(new ValidationException.FieldError("items", Messages.itemCountDetail(1)))));
 
-        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON).content(body("42")))
+        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("42")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value(Messages.COMPARISON_ITEM_COUNT))
                 .andExpect(jsonPath("$.error.details[0].field").value("items"));
@@ -132,8 +134,6 @@ class ComparisonControllerTest {
 
     @Test
     void ohneTokenLiefert401() throws Exception {
-        when(authService.authenticate(null)).thenThrow(new UnauthorizedException(Messages.NOT_LOGGED_IN));
-
         mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[]}"))
                 .andExpect(status().isUnauthorized())
@@ -146,7 +146,8 @@ class ComparisonControllerTest {
         when(comparisonService.compare(any(), any(), any()))
                 .thenThrow(new NotFoundException(Messages.PORTFOLIO_NOT_FOUND));
 
-        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON).content(body("42")))
+        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("42")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
     }
@@ -156,7 +157,8 @@ class ComparisonControllerTest {
         when(comparisonService.compare(any(), any(), any()))
                 .thenThrow(new InsufficientDataException(List.of(asset)));
 
-        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON).content(body("42")))
+        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("42")))
                 .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("INSUFFICIENT_DATA"))
                 .andExpect(jsonPath("$.error.details[0].assetId").value(31));
@@ -168,7 +170,8 @@ class ComparisonControllerTest {
         when(comparisonService.compare(any(), any(), any()))
                 .thenThrow(new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null));
 
-        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON).content(body("42")))
+        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("42")))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("UPSTREAM_UNAVAILABLE"))
                 .andExpect(jsonPath("$.error.message").value(Messages.UPSTREAM_UNAVAILABLE));
