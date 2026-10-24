@@ -4,6 +4,7 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -19,6 +20,9 @@ import com.lookupstock.backend.model.Asset;
  * Kursdaten, die jünger als 24 h sind, kommen aus dem Cache in Postgres, ohne Twelve Data aufzurufen.
  * Ältere oder fehlende Kursdaten werden neu abgerufen; ist Twelve Data dann nicht erreichbar,
  * wird die UpstreamUnavailableException (503) weitergegeben und kein veralteter Cache verwendet.
+ * Zurückgegeben werden nur abgeschlossene Monate; der laufende Monat zählt weder zur Schätzung
+ * noch zu den 36 Monatswerten (E22, B5). Der Cache speichert die Rohdaten, gefiltert wird beim Lesen,
+ * damit ein beim Monatswechsel noch gültiger Cache den gerade abgeschlossenen Monat liefert.
  */
 @Service
 public class PriceHistoryService {
@@ -45,14 +49,16 @@ public class PriceHistoryService {
     }
 
     /**
-     * @return Monatswerte aufsteigend nach Datum; leer, wenn Twelve Data für die Anlage keine Kurse kennt
+     * @return Monatswerte abgeschlossener Monate aufsteigend nach Datum; leer, wenn Twelve Data
+     *         für die Anlage keine Kurse kennt
      */
     public List<PricePoint> getMonthlyPrices(Asset asset) {
         Instant now = clock.instant();
+        YearMonth currentMonth = YearMonth.now(clock);
 
         Optional<PriceCache.CachedPrices> cached = priceCache.load(asset.getId());
         if (cached.isPresent() && isFresh(cached.get().fetchedAt(), now)) {
-            return cached.get().prices();
+            return completedMonths(cached.get().prices(), currentMonth);
         }
 
         // wirft UpstreamUnavailableException, wenn Twelve Data nicht erreichbar ist (503)
@@ -67,7 +73,14 @@ public class PriceHistoryService {
         if (!sorted.isEmpty()) {
             priceCache.replace(asset.getId(), sorted, now);
         }
-        return sorted;
+        return completedMonths(sorted, currentMonth);
+    }
+
+    // E22: Werte des laufenden (und eines späteren) Monats werden nicht verwendet
+    static List<PricePoint> completedMonths(List<PricePoint> prices, YearMonth currentMonth) {
+        return prices.stream()
+                .filter(p -> YearMonth.from(p.date()).isBefore(currentMonth))
+                .toList();
     }
 
     // „jünger als 24 h“: genau 24 h alt gilt bereits als veraltet
