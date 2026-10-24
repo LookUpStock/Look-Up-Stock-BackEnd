@@ -186,7 +186,7 @@ class PortfolioServiceTest {
     @Test
     void create_withoutPositions_isRejected() {
         // positions ist null: Der Service macht daraus eine leere Liste
-        assertRejected(new PortfolioRequest(null, "Mein Depot", null),
+        assertRejected(new PortfolioRequest("Mein Depot", null),
                 "positions", Messages.POSITIONS_EMPTY);
     }
 
@@ -346,7 +346,7 @@ class PortfolioServiceTest {
 
     // Erzeugt einen Portfolio-Request, das Token wird im Service nicht verwendet
     private static PortfolioRequest request(String name, PositionRequest... positions) {
-        return new PortfolioRequest(null, name, List.of(positions));
+        return new PortfolioRequest(name, List.of(positions));
     }
 
         // Legt fest, welche Anlagen das gemockte Repository "kennt"

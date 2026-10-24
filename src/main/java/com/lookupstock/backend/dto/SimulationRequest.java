@@ -12,7 +12,7 @@ import com.lookupstock.backend.model.SimulationParameters;
  * Die Zahlen kommen als BigDecimal an, damit Kommazahlen bei Horizont, Pfaden und Seed
  * abgelehnt werden (AT-04-17, AT-04-31) statt still abgeschnitten zu werden.
  */
-public record SimulationRequest(String token, Long portfolioId, Parameters parameters,
+public record SimulationRequest(Long portfolioId, Parameters parameters,
                                 Boolean save, String name) {
 
     private static final int MAX_NAME_LENGTH = 100;

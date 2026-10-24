@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,7 +34,6 @@ import com.lookupstock.backend.exception.GlobalExceptionHandler;
 import com.lookupstock.backend.exception.InsufficientDataException;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
-import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Estimate;
@@ -79,7 +79,7 @@ class SimulationControllerTest {
 
     private static String body(String horizon, String seed) {
         return """
-                {"token":"gueltig","portfolioId":5,"parameters":{"startCapital":10000,"monthlyContribution":200,\
+                {"portfolioId":5,"parameters":{"startCapital":10000,"monthlyContribution":200,\
                 "horizonYears":%s,"paths":10000,"seed":%s}}""".formatted(horizon, seed);
     }
 
@@ -94,7 +94,8 @@ class SimulationControllerTest {
                 123);
         when(simulationService.simulate(eq(5L), eq(params), eq(OWNER))).thenReturn(result);
 
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("20", "42")))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("20", "42")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.portfolioId").value(5))
                 .andExpect(jsonPath("$.parameters.seed").value(42))
@@ -110,7 +111,8 @@ class SimulationControllerTest {
 
     @Test
     void kommazahlBeimHorizontLiefert400() throws Exception {
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("2.5", "42")))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("2.5", "42")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.message").value(Messages.HORIZON_INVALID))
@@ -120,7 +122,8 @@ class SimulationControllerTest {
 
     @Test
     void kommazahlBeimSeedLiefert400() throws Exception {
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("20", "4.2")))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("20", "4.2")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value(Messages.SEED_INVALID));
         verifyNoInteractions(simulationService);
@@ -128,8 +131,6 @@ class SimulationControllerTest {
 
     @Test
     void ohneTokenLiefert401() throws Exception {
-        when(authService.authenticate(null)).thenThrow(new UnauthorizedException(Messages.NOT_LOGGED_IN));
-
         mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"portfolioId\":5}"))
                 .andExpect(status().isUnauthorized())
@@ -142,7 +143,8 @@ class SimulationControllerTest {
         when(simulationService.simulate(any(), any(), any()))
                 .thenThrow(new InsufficientDataException(List.of(asset)));
 
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("20", "42")))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("20", "42")))
                 .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("INSUFFICIENT_DATA"))
                 .andExpect(jsonPath("$.error.details[0].assetId").value(1))
@@ -154,7 +156,8 @@ class SimulationControllerTest {
         when(simulationService.simulate(any(), any(), any()))
                 .thenThrow(new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null));
 
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("20", "42")))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("20", "42")))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error.code").value("UPSTREAM_UNAVAILABLE"));
     }
@@ -185,7 +188,7 @@ class SimulationControllerTest {
 
     private static String saveBody(String nameJson) {
         return """
-                {"token":"gueltig","portfolioId":5,"parameters":{"startCapital":10000,"monthlyContribution":200,\
+                {"portfolioId":5,"parameters":{"startCapital":10000,"monthlyContribution":200,\
                 "horizonYears":20,"paths":10000,"seed":42},"save":true,"name":%s}""".formatted(nameJson);
     }
 
@@ -199,7 +202,7 @@ class SimulationControllerTest {
                 .thenReturn(StoredSimulationResult.from(SimulationResponse.from(result)));
 
         mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
-                        .content(saveBody("\"  Mein Plan  \"")))
+                        .header("Authorization", "Bearer gueltig").content(saveBody("\"  Mein Plan  \"")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(12))
                 .andExpect(jsonPath("$.name").value("Mein Plan"))
@@ -213,7 +216,8 @@ class SimulationControllerTest {
     void simulateWithoutSave_storesNothing() throws Exception {
         when(simulationService.simulate(any(), any(), eq(OWNER))).thenReturn(sampleResult());
 
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(body("20", "42")))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(body("20", "42")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").isEmpty())
                 .andExpect(jsonPath("$.name").isEmpty());
@@ -222,7 +226,8 @@ class SimulationControllerTest {
 
     @Test
     void simulateWithSaveWithoutName_returns400BeforeCalculating() throws Exception {
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(saveBody("null")))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(saveBody("null")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.message").value(Messages.NAME_INVALID))
@@ -234,7 +239,8 @@ class SimulationControllerTest {
     void simulateWithSaveAndTooLongName_returns400() throws Exception {
         String tooLong = "\"" + "a".repeat(101) + "\"";
 
-        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON).content(saveBody(tooLong)))
+        mockMvc.perform(post("/api/v1/simulations").contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer gueltig").content(saveBody(tooLong)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.message").value(Messages.NAME_INVALID));
         verifyNoInteractions(simulationService, savedSimulationService);
@@ -244,8 +250,7 @@ class SimulationControllerTest {
     void list_returnsOwnSimulations() throws Exception {
         when(savedSimulationService.findAll(OWNER)).thenReturn(List.of(sampleSaved()));
 
-        mockMvc.perform(post("/api/v1/simulations/list").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"gueltig\"}"))
+        mockMvc.perform(get("/api/v1/simulations").header("Authorization", "Bearer gueltig"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.simulations[0].id").value(12))
                 .andExpect(jsonPath("$.simulations[0].name").value("Mein Plan"))
@@ -255,9 +260,7 @@ class SimulationControllerTest {
 
     @Test
     void listWithoutToken_returns401() throws Exception {
-        when(authService.authenticate(null)).thenThrow(new UnauthorizedException(Messages.NOT_LOGGED_IN));
-
-        mockMvc.perform(post("/api/v1/simulations/list"))
+        mockMvc.perform(get("/api/v1/simulations"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
         verifyNoInteractions(savedSimulationService);
@@ -270,8 +273,7 @@ class SimulationControllerTest {
         when(savedSimulationService.readResult(saved))
                 .thenReturn(StoredSimulationResult.from(SimulationResponse.from(sampleResult())));
 
-        mockMvc.perform(post("/api/v1/simulations/12/details").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"gueltig\"}"))
+        mockMvc.perform(get("/api/v1/simulations/12").header("Authorization", "Bearer gueltig"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(12))
                 .andExpect(jsonPath("$.name").value("Mein Plan"))
@@ -286,8 +288,7 @@ class SimulationControllerTest {
         when(savedSimulationService.findById(12L, OWNER))
                 .thenThrow(new NotFoundException(Messages.SIMULATION_NOT_FOUND));
 
-        mockMvc.perform(post("/api/v1/simulations/12/details").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"gueltig\"}"))
+        mockMvc.perform(get("/api/v1/simulations/12").header("Authorization", "Bearer gueltig"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.error.message").value(Messages.SIMULATION_NOT_FOUND));
@@ -295,8 +296,7 @@ class SimulationControllerTest {
 
     @Test
     void delete_returns204() throws Exception {
-        mockMvc.perform(delete("/api/v1/simulations/12").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"gueltig\"}"))
+        mockMvc.perform(delete("/api/v1/simulations/12").header("Authorization", "Bearer gueltig"))
                 .andExpect(status().isNoContent());
         verify(savedSimulationService).delete(12L, OWNER);
     }
@@ -306,8 +306,7 @@ class SimulationControllerTest {
         doThrow(new NotFoundException(Messages.SIMULATION_NOT_FOUND))
                 .when(savedSimulationService).delete(12L, OWNER);
 
-        mockMvc.perform(delete("/api/v1/simulations/12").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"gueltig\"}"))
+        mockMvc.perform(delete("/api/v1/simulations/12").header("Authorization", "Bearer gueltig"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.message").value(Messages.SIMULATION_NOT_FOUND));
     }
