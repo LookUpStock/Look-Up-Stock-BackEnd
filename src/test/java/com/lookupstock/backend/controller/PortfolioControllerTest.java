@@ -177,6 +177,29 @@ class PortfolioControllerTest {
     }
 
     @Test
+    void aendernOhneTokenLiefert401() throws Exception {
+        // BE #90: PUT ohne Token wird vor jeder Änderung abgewiesen
+        when(authService.authenticate(null)).thenThrow(new UnauthorizedException(Messages.NOT_LOGGED_IN));
+
+        mockMvc.perform(put("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Neu\",\"positions\":[{\"assetId\":1,\"weight\":100}]}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.error.message").value(Messages.NOT_LOGGED_IN));
+        verifyNoInteractions(portfolioService);
+    }
+
+    @Test
+    void aendernMitUngueltigemTokenLiefert401() throws Exception {
+        when(authService.authenticate("abgelaufen")).thenThrow(new UnauthorizedException(Messages.NOT_LOGGED_IN));
+
+        mockMvc.perform(put("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"abgelaufen\",\"name\":\"Neu\",\"positions\":[{\"assetId\":1,\"weight\":100}]}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(portfolioService);
+    }
+
+    @Test
     void loeschenLiefert204() throws Exception {
         when(authService.authenticate("gueltig")).thenReturn(OWNER);
 

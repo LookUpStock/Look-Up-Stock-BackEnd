@@ -27,6 +27,7 @@ import com.lookupstock.backend.exception.InsufficientDataException;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
 import com.lookupstock.backend.exception.UnauthorizedException;
+import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.ComparisonEntry;
@@ -159,5 +160,17 @@ class ComparisonControllerTest {
                 .andExpect(status().is(422))
                 .andExpect(jsonPath("$.error.code").value("INSUFFICIENT_DATA"))
                 .andExpect(jsonPath("$.error.details[0].assetId").value(31));
+    }
+
+    @Test
+    void anbieterAusfallLiefert503() throws Exception {
+        // BE #90, NF-07: weder Cache noch Twelve Data liefern Kurse
+        when(comparisonService.compare(any(), any(), any()))
+                .thenThrow(new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null));
+
+        mockMvc.perform(post("/api/v1/comparisons").contentType(MediaType.APPLICATION_JSON).content(body("42")))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("UPSTREAM_UNAVAILABLE"))
+                .andExpect(jsonPath("$.error.message").value(Messages.UPSTREAM_UNAVAILABLE));
     }
 }
