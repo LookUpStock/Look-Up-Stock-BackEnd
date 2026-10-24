@@ -122,6 +122,59 @@ class PriceHistoryServiceTest {
     }
 
     @Test
+    void laufenderMonatWirdBeimAbrufAusgeschlossenAberGespeichert() {
+        // B5 (E22): Abruf am 11.10.2026, Twelve Data liefert bereits einen Wert für Oktober
+        when(cache.load(7L)).thenReturn(Optional.empty());
+        when(provider.getHistoricalPrices("EUNL", "XETR", "1month", 120)).thenReturn(List.of(
+                new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102")),
+                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101")),
+                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100"))));
+
+        List<PricePoint> result = service.getMonthlyPrices(asset);
+
+        assertThat(result).extracting(PricePoint::date)
+                .containsExactly(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1));
+        // Der Cache enthält die Rohdaten inklusive Oktober, damit er nach dem Monatswechsel gültig bleibt
+        verify(cache).replace(7L, List.of(
+                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.000000")),
+                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.000000")),
+                new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102.000000"))), NOW);
+    }
+
+    @Test
+    void laufenderMonatAusDemCacheWirdAusgeschlossen() {
+        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(
+                NOW.minus(Duration.ofHours(1)), withOctober())));
+
+        assertThat(service.getMonthlyPrices(asset)).isEqualTo(CACHED);
+    }
+
+    @Test
+    void nachDemMonatswechselZaehltDerAbgeschlosseneMonat() {
+        // feste Uhr: 01.11.2026 00:00 UTC, Cache vom 31.10.2026 23:00 UTC ist noch gültig
+        Instant novemberFirst = Instant.parse("2026-11-01T00:00:00Z");
+        PriceHistoryService november = new PriceHistoryService(provider, cache, Clock.fixed(novemberFirst, ZoneOffset.UTC));
+        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(
+                novemberFirst.minus(Duration.ofHours(1)), withOctober())));
+
+        assertThat(november.getMonthlyPrices(asset)).isEqualTo(withOctober());
+    }
+
+    @Test
+    void letzterTagDesMonatsGehoertNochZumLaufendenMonat() {
+        Instant lastDay = Instant.parse("2026-10-31T23:59:59Z");
+        PriceHistoryService octoberEnd = new PriceHistoryService(provider, cache, Clock.fixed(lastDay, ZoneOffset.UTC));
+        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(
+                lastDay.minus(Duration.ofHours(1)), withOctober())));
+
+        assertThat(octoberEnd.getMonthlyPrices(asset)).isEqualTo(CACHED);
+    }
+
+    private static List<PricePoint> withOctober() {
+        return List.of(CACHED.get(0), CACHED.get(1), new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102")));
+    }
+
+    @Test
     void genau24hGiltAlsVeraltet() {
         assertThat(PriceHistoryService.isFresh(NOW.minus(Duration.ofHours(24)), NOW)).isFalse();
         assertThat(PriceHistoryService.isFresh(NOW.minus(Duration.ofHours(24)).plusSeconds(1), NOW)).isTrue();
