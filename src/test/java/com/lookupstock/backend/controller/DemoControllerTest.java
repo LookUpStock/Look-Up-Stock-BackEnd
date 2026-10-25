@@ -59,14 +59,14 @@ class DemoControllerTest {
         mockMvc.perform(get("/api/v1/demo/portfolios"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.portfolios[0].id").value(900))
-                .andExpect(jsonPath("$.portfolios[0].positions[0].symbol").value("EUNL"))
+                .andExpect(jsonPath("$.portfolios[0].positions[0].symbol").value("URTH"))
                 .andExpect(jsonPath("$.portfolios[0].positions[0].weight").value(100))
                 .andExpect(jsonPath("$.portfolios[1].positions.length()").value(2));
     }
 
     @Test
     void beispielsimulationOhneHeaderLiefert200OhneId() throws Exception {
-        Asset asset = new Asset("EUNL", null, "iShares Core MSCI World", "XETRA", "EUR", "ETF", "XETR");
+        Asset asset = new Asset("URTH", null, "iShares MSCI World ETF", "NYSE", "USD", "ETF", "ARCX");
         ReflectionTestUtils.setField(asset, "id", 1L);
         SimulationParameters params = new SimulationParameters(10_000.0, 200.0, 20, 10_000, 42L);
         SimulationResult result = new SimulationResult(900L, params,
