@@ -106,6 +106,62 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<!-- Testabdeckung mit JaCoCo (NF-11, Testkonzept Abschnitt 9) -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.14</version>
+				<executions>
+					<!-- Agent vor den Tests starten, damit die Ausführung aufgezeichnet wird -->
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<!-- Bericht über alle Klassen nach den Tests (HTML, XML, CSV unter target/site/jacoco) -->
+					<execution>
+						<id>report</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+					<!-- Build schlägt fehl, wenn die Kernlogik unter 80 % Zeilenabdeckung fällt -->
+					<execution>
+						<id>check-core-logic</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+						<configuration>
+							<!-- Kernlogik laut Testkonzept Abschnitt 9 -->
+							<includes>
+								<include>com/lookupstock/backend/service/ParameterEstimator*</include>
+								<include>com/lookupstock/backend/service/MonteCarloEngine*</include>
+								<include>com/lookupstock/backend/service/MetricsCalculator*</include>
+								<include>com/lookupstock/backend/service/SimulationService*</include>
+								<include>com/lookupstock/backend/service/ComparisonService*</include>
+								<include>com/lookupstock/backend/service/PortfolioService*</include>
+								<include>com/lookupstock/backend/model/Portfolio.class</include>
+								<include>com/lookupstock/backend/model/Portfolio$*</include>
+							</includes>
+							<rules>
+								<rule>
+									<element>BUNDLE</element>
+									<limits>
+										<limit>
+											<counter>LINE</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>0.80</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 
