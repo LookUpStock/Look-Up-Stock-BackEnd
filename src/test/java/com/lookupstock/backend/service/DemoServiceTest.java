@@ -55,15 +55,15 @@ class DemoServiceTest {
         simulationService = mock(SimulationService.class);
         service = new DemoService(assetRepository, estimator, simulationService);
 
-        world = new Asset("EUNL", null, "iShares Core MSCI World", "XETRA", "EUR", "ETF", "XETR");
+        world = new Asset("URTH", null, "iShares MSCI World ETF", "NYSE", "USD", "ETF", "ARCX");
         ReflectionTestUtils.setField(world, "id", 1L);
-        emergingMarkets = new Asset("IS3N", null, "iShares Core MSCI EM IMI", "XETRA", "EUR", "ETF", "XETR");
+        emergingMarkets = new Asset("IEMG", null, "iShares Core MSCI Emerging Markets ETF", "NYSE", "USD", "ETF", "ARCX");
         ReflectionTestUtils.setField(emergingMarkets, "id", 2L);
         estimation = new EstimationResult(LocalDate.of(2016, 10, 1), LocalDate.of(2026, 9, 1),
                 List.of(new Estimate(world, 0.07, 0.15)));
 
-        when(assetRepository.findBySymbolAndMicCode("EUNL", "XETR")).thenReturn(Optional.of(world));
-        when(assetRepository.findBySymbolAndMicCode("IS3N", "XETR")).thenReturn(Optional.of(emergingMarkets));
+        when(assetRepository.findBySymbolAndMicCode("URTH", "ARCX")).thenReturn(Optional.of(world));
+        when(assetRepository.findBySymbolAndMicCode("IEMG", "ARCX")).thenReturn(Optional.of(emergingMarkets));
         when(estimator.estimate(anyList())).thenReturn(estimation);
         when(simulationService.ensureSeed(any())).thenAnswer(inv -> {
             SimulationParameters p = inv.getArgument(0);
@@ -103,15 +103,15 @@ class DemoServiceTest {
 
     @Test
     void fehlendeAnlageWirdAngelegt() {
-        when(assetRepository.findBySymbolAndMicCode("EUNL", "XETR")).thenReturn(Optional.empty());
+        when(assetRepository.findBySymbolAndMicCode("URTH", "ARCX")).thenReturn(Optional.empty());
         when(assetRepository.save(any(Asset.class))).thenReturn(world);
 
         service.simulate(900L, params(10_000, 42L));
 
         ArgumentCaptor<Asset> captor = ArgumentCaptor.forClass(Asset.class);
         verify(assetRepository).save(captor.capture());
-        assertThat(captor.getValue().getSymbol()).isEqualTo("EUNL");
-        assertThat(captor.getValue().getMicCode()).isEqualTo("XETR");
+        assertThat(captor.getValue().getSymbol()).isEqualTo("URTH");
+        assertThat(captor.getValue().getMicCode()).isEqualTo("ARCX");
         verify(estimator).estimate(List.of(world));
     }
 
