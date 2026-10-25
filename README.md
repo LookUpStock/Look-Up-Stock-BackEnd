@@ -98,6 +98,8 @@ Geschützte Endpunkte erwarten den Header `Authorization: Bearer <token>` (ADR-0
 | GET | `/api/v1/simulations/{id}` | Gespeicherte Simulation abrufen | ja |
 | DELETE | `/api/v1/simulations/{id}` | Gespeicherte Simulation löschen | ja |
 | POST | `/api/v1/comparisons` | Zwei Einträge vergleichen (US-07) | ja |
+| GET | `/api/v1/demo/portfolios` | Beispielportfolios für Gäste (US-09) | nein |
+| POST | `/api/v1/demo/simulations` | Beispielsimulation ohne Speichern, höchstens 10.000 Pfade (US-09) | nein |
 
 Außerdem: `GET /api/health` und `GET /actuator/health` liefern den Zustand der Anwendung.
 

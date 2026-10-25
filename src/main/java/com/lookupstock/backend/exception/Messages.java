@@ -68,6 +68,10 @@ public final class Messages {
         return "Ausgewählt: " + count + ".";
     }
 
+    // Gastmodus (US-09)
+    public static final String DEMO_PORTFOLIO_NOT_FOUND = "Beispielportfolio nicht gefunden.";
+    public static final String DEMO_PATHS_INVALID = "In der Beispielsimulation sind höchstens 10.000 Simulationspfade möglich.";
+
     // E6: alle betroffenen Anlagen werden mit Namen genannt
     public static String insufficientData(List<String> assetNames) {
         return "Für folgende Anlagen liegen weniger als 3 Jahre Kursdaten vor: "
