@@ -61,3 +61,29 @@ jobs:
           name: surefire-reports
           path: target/surefire-reports/
           if-no-files-found: ignore
+
+       # Abdeckung der Kernlogik in der Zusammenfassung des CI-Laufs anzeigen (NF-11)
+      - name: Abdeckung der Kernlogik
+        if: always()
+        run: |
+          CSV=target/site/jacoco/jacoco.csv
+          if [ ! -f "$CSV" ]; then
+            echo "Kein JaCoCo-Bericht vorhanden." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          awk -F, -v core="ParameterEstimator MonteCarloEngine MetricsCalculator SimulationService ComparisonService Portfolio PortfolioService" '
+            BEGIN { n = split(core, names, " "); for (i = 1; i <= n; i++) wanted[names[i]] = 1 }
+            # Spalte 3 ist die Klasse; innere Klassen (z. B. Portfolio.Builder) zählen zur äußeren
+            NR > 1 { cls = $3; sub(/\..*/, "", cls); if (cls in wanted) { missed += $8; covered += $9 } }
+            END {
+              total = missed + covered
+              printf "### Testabdeckung Kernlogik (NF-11)\n\n%d von %d Zeilen = **%.1f %%** (Zielwert 80 %%)\n", covered, total, (total ? 100 * covered / total : 0)
+            }' "$CSV" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: JaCoCo-Bericht hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          if-no-files-found: ignore
