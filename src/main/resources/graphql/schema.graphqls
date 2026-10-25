@@ -1,0 +1,70 @@
+# Lesende GraphQL-Schnittstelle von LookUpStock (BE #94)
+# Anmeldung wie bei REST: Header "Authorization: Bearer <token>" (ADR-06)
+
+type Query {
+    "Anlagensuche wie GET /assets/search; ohne Anmeldung. limit 1 bis 25, Standard 10"
+    searchAssets(query: String!, limit: Int): [Asset!]!
+
+    "Eigene Portfolios, neueste zuerst; Anmeldung erforderlich"
+    portfolios: [Portfolio!]!
+
+    "Ein eigenes Portfolio; fremde oder unbekannte ID liefert NOT_FOUND (NF-04)"
+    portfolio(id: ID!): Portfolio
+
+    "Eigene gespeicherte Simulationen, neueste zuerst; Anmeldung erforderlich"
+    savedSimulations: [SavedSimulation!]!
+
+    "Eine eigene gespeicherte Simulation; fremde oder unbekannte ID liefert NOT_FOUND (NF-04)"
+    savedSimulation(id: ID!): SavedSimulation
+}
+
+type Asset {
+    id: ID!
+    symbol: String!
+    isin: String
+    name: String
+    exchange: String
+    micCode: String
+    currency: String
+    type: String
+}
+
+type Portfolio {
+    id: ID!
+    name: String!
+    "Zeitpunkt im Format ISO-8601 (UTC)"
+    createdAt: String!
+    updatedAt: String
+    positions: [Position!]!
+}
+
+type Position {
+    assetId: ID!
+    symbol: String!
+    name: String
+    "Gewichtung in Prozent"
+    weight: Float!
+}
+
+type SavedSimulation {
+    id: ID!
+    name: String!
+    portfolioId: ID!
+    createdAt: String!
+    "Wird nur geladen, wenn die Abfrage das Feld anfordert"
+    portfolio: Portfolio
+    "Kennzahlen aus US-05; werden nur geladen, wenn die Abfrage das Feld anfordert"
+    metrics: Metrics
+}
+
+type Metrics {
+    totalContributions: Float!
+    medianEndValue: Float!
+    p5EndValue: Float!
+    p95EndValue: Float!
+    valueAtRisk95: Float!
+    "Anteil, z. B. 0.31 = 31 %"
+    maxDrawdownMedian: Float!
+    "null ohne Zielbetrag"
+    targetProbability: Float
+}
