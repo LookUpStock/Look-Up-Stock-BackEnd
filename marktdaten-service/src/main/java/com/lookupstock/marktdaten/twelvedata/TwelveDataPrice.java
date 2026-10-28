@@ -1,9 +1,10 @@
-package com.lookupstock.backend.client;
+package com.lookupstock.marktdaten.twelvedata;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.lookupstock.marktdaten.model.PricePoint;
 
 record TwelveDataPrice(
         @JsonProperty("datetime") String datetime,

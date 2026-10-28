@@ -1,4 +1,4 @@
-package com.lookupstock.backend.client;
+package com.lookupstock.marktdaten.twelvedata;
 
 import java.time.Duration;
 import java.util.List;
@@ -12,8 +12,9 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import com.lookupstock.backend.exception.Messages;
-import com.lookupstock.backend.exception.UpstreamUnavailableException;
+import com.lookupstock.marktdaten.exception.UpstreamUnavailableException;
+import com.lookupstock.marktdaten.model.PricePoint;
+import com.lookupstock.marktdaten.model.SearchHit;
 
 @Component
 public class TwelveDataProvider implements MarketDataProvider {
@@ -101,7 +102,7 @@ public class TwelveDataProvider implements MarketDataProvider {
     }
 
     // ---------- Fehlerbehandlung ----------
-    // Für den Nutzer bleibt die Meldung laut API-Design immer „Kursdaten sind gerade nicht verfügbar.“ (503).
+    // Für den Nutzer bleibt die Meldung laut API-Design immer „Kursdaten sind gerade nicht verfügbar.“ (503 über den core-service).
     // Die Ursache wird unterschieden und protokolliert, damit sie im Betrieb (z. B. Heroku-Log) erkennbar ist.
 
     /**
@@ -130,11 +131,11 @@ public class TwelveDataProvider implements MarketDataProvider {
             case RATE_LIMIT -> log.warn("Twelve Data ({}): API-Limit erreicht (Code 429) – {}", operation, message);
             default -> log.warn("Twelve Data ({}): Fehler {} – {}", operation, code, message);
         }
-        return new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null);
+        return new UpstreamUnavailableException(null);
     }
 
     private UpstreamUnavailableException unreachable(String operation, RestClientException e) {
         log.warn("Twelve Data ({}): nicht erreichbar – {}", operation, e.getMessage());
-        return new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, e);
+        return new UpstreamUnavailableException(e);
     }
 }

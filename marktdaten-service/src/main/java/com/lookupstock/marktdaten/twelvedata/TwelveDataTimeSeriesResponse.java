@@ -1,4 +1,4 @@
-package com.lookupstock.backend.client;
+package com.lookupstock.marktdaten.twelvedata;
 
 import java.util.List;
 

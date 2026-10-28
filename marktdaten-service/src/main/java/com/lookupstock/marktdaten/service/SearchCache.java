@@ -1,4 +1,4 @@
-package com.lookupstock.backend.service;
+package com.lookupstock.marktdaten.service;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -11,12 +11,12 @@ import java.util.function.Supplier;
 
 import org.springframework.stereotype.Component;
 
-import com.lookupstock.backend.client.SearchHit;
+import com.lookupstock.marktdaten.model.SearchHit;
 
 /**
  * Zwischenspeicher für Suchergebnisse der Finanzdaten-API (NF-02, AT-02-08).
  * Derselbe Suchbegriff wird 24 Stunden lang aus dem Arbeitsspeicher beantwortet,
- * ohne Twelve Data erneut abzufragen. Nach einem Neustart des Backends ist der Cache leer.
+ * ohne Twelve Data erneut abzufragen. Nach einem Neustart des marktdaten-service ist der Cache leer (BE #106: aus dem core-service hierher verschoben).
  */
 @Component
 public class SearchCache {

@@ -1,4 +1,4 @@
-package com.lookupstock.backend.client;
+package com.lookupstock.marktdaten.twelvedata;
 
 /**
  * Einordnung der Fehlercodes von Twelve Data.

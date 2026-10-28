@@ -1,4 +1,4 @@
-package com.lookupstock.backend.service;
+package com.lookupstock.marktdaten.service;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.lookupstock.backend.client.SearchHit;
-import com.lookupstock.backend.exception.UpstreamUnavailableException;
+import com.lookupstock.marktdaten.model.SearchHit;
+import com.lookupstock.marktdaten.exception.UpstreamUnavailableException;
 
 class SearchCacheTest {
 
@@ -105,7 +105,7 @@ class SearchCacheTest {
     @Test
     void getOrLoad_loaderFails_storesNothing() {
         UpstreamUnavailableException failure =
-                new UpstreamUnavailableException("Kursdaten-Dienst nicht erreichbar.", null);
+                new UpstreamUnavailableException(null);
 
         assertThatThrownBy(() -> cache.getOrLoad("apple", () -> {
             loaderCalls.incrementAndGet();
