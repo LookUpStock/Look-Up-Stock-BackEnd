@@ -117,6 +117,38 @@ class PortfolioControllerTest {
     }
 
     @Test
+    void eigenesPortfolioLiefert200() throws Exception {
+        // BE #109: GET /portfolios/{id} mit eigenem Portfolio liefert das Portfolio mit Positionen
+        Portfolio p = new Portfolio("Mein Weltportfolio", OWNER);
+        Asset urth = new Asset("URTH", null, "iShares MSCI World ETF", "NYSE", "USD", "ETF", "ARCX");
+        ReflectionTestUtils.setField(urth, "id", 1L);
+        p.addPosition(urth, new BigDecimal("100"));
+        ReflectionTestUtils.setField(p, "id", 5L);
+        Instant zeit = Instant.parse("2026-10-18T10:00:00Z");
+        ReflectionTestUtils.setField(p, "createdAt", zeit);
+        ReflectionTestUtils.setField(p, "updatedAt", zeit);
+        when(portfolioService.findById(5L, OWNER)).thenReturn(p);
+
+        mockMvc.perform(get("/api/v1/portfolios/5").header("Authorization", "Bearer gueltig"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(5))
+                .andExpect(jsonPath("$.name").value("Mein Weltportfolio"))
+                .andExpect(jsonPath("$.createdAt").value("2026-10-18T10:00:00Z"))
+                .andExpect(jsonPath("$.positions[0].assetId").value(1))
+                .andExpect(jsonPath("$.positions[0].symbol").value("URTH"))
+                .andExpect(jsonPath("$.positions[0].weight").value(100));
+        verify(portfolioService).findById(5L, OWNER);
+    }
+
+    @Test
+    void einzelnesPortfolioOhneAnmeldungLiefert401() throws Exception {
+        mockMvc.perform(get("/api/v1/portfolios/5"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+        verifyNoInteractions(portfolioService);
+    }
+
+    @Test
     void unbekannteIdLiefert404() throws Exception {
         when(portfolioService.findById(9999L, OWNER))
                 .thenThrow(new NotFoundException(Messages.PORTFOLIO_NOT_FOUND));
