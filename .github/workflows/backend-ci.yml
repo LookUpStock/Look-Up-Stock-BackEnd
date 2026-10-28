@@ -1,16 +1,27 @@
-name: Backend CI
+name: Backend CI (core-service)
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'core-service/**'
+      - '.github/workflows/backend-ci.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'core-service/**'
+      - '.github/workflows/backend-ci.yml'
   workflow_dispatch:
 
 jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+
+    # ADR-07: Der bisherige Backend-Code liegt im Ordner core-service
+    defaults:
+      run:
+        working-directory: core-service
 
     # PostgreSQL-Datenbank fuer die Tests (Flyway migriert das Schema beim Start,
     # danach prueft Hibernate es mit ddl-auto=validate)
@@ -47,6 +58,7 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+          cache-dependency-path: core-service/pom.xml
 
       - name: Maven Wrapper ausfuehrbar machen
         run: chmod +x mvnw
@@ -59,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          path: target/surefire-reports/
+          path: core-service/target/surefire-reports/
           if-no-files-found: ignore
 
        # Abdeckung der Kernlogik in der Zusammenfassung des CI-Laufs anzeigen (NF-11)
@@ -85,5 +97,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-report
-          path: target/site/jacoco/
+          path: core-service/target/site/jacoco/
           if-no-files-found: ignore
