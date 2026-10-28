@@ -2,22 +2,15 @@ package com.lookupstock.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,154 +22,95 @@ import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.model.Asset;
 
-/** NF-07: Kursdaten jünger als 24 h kommen aus dem Cache, sonst neuer Abruf; bei Ausfall 503. */
+/**
+ * Monatswerte für die Simulation: sortiert, gerundet, nur abgeschlossene Monate (E22); bei Ausfall 503.
+ * Die Fälle zum 24-h-Cache stehen seit BE #106 im PriceServiceTest des marktdaten-service.
+ */
 class PriceHistoryServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-10-11T12:00:00Z");
 
     private MarketDataProvider provider;
-    private PriceCache cache;
     private PriceHistoryService service;
     private Asset asset;
-
-    private static final List<PricePoint> CACHED = List.of(
-            new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100")),
-            new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101")));
 
     @BeforeEach
     void setUp() {
         provider = mock(MarketDataProvider.class);
-        cache = mock(PriceCache.class);
-        service = new PriceHistoryService(provider, cache, Clock.fixed(NOW, ZoneOffset.UTC));
-        asset = new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR");
+        service = new PriceHistoryService(provider, Clock.fixed(NOW, ZoneOffset.UTC));
+        asset = new Asset("URTH", null, "iShares MSCI World ETF", "NYSE", "USD", "ETF", "ARCX");
         ReflectionTestUtils.setField(asset, "id", 7L);
     }
 
     @Test
-    void cacheJuengerAls24hWirdOhneAbrufVerwendet() {
-        when(cache.load(7L)).thenReturn(Optional.of(
-                new PriceCache.CachedPrices(NOW.minus(Duration.ofHours(23)), CACHED)));
-
-        assertThat(service.getMonthlyPrices(asset)).isEqualTo(CACHED);
-        verify(provider, never()).getHistoricalPrices(anyString(), any(), anyString(), anyInt());
-        verify(cache, never()).replace(any(), any(), any());
-    }
-
-    @Test
-    void veralteterCacheUndAnbieterNichtErreichbarLiefert503() {
-        when(cache.load(7L)).thenReturn(Optional.of(
-                new PriceCache.CachedPrices(NOW.minus(Duration.ofHours(25)), CACHED)));
-        when(provider.getHistoricalPrices("EUNL", "XETR", "1month", 120))
-                .thenThrow(new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null));
-
-        assertThatThrownBy(() -> service.getMonthlyPrices(asset))
-                .isInstanceOf(UpstreamUnavailableException.class);
-        verify(cache, never()).replace(any(), any(), any());
-    }
-
-    @Test
-    void ohneCacheWirdAbgerufenSortiertUndGespeichert() {
-        when(cache.load(7L)).thenReturn(Optional.empty());
-        // Twelve Data liefert die neuesten Werte zuerst
-        when(provider.getHistoricalPrices("EUNL", "XETR", "1month", 120)).thenReturn(List.of(
+    void kurseWerdenMitSymbolUndMicAbgerufenUndAufsteigendSortiert() {
+        // Der Anbieter liefert die neuesten Werte zuerst
+        when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(List.of(
                 new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101")),
                 new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100"))));
 
-        List<PricePoint> result = service.getMonthlyPrices(asset);
-
-        // auf 6 Nachkommastellen gerundet wie in price_history
-        List<PricePoint> expected = List.of(
+        assertThat(service.getMonthlyPrices(asset)).containsExactly(
                 new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.000000")),
                 new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.000000")));
-        assertThat(result).isEqualTo(expected);
-        verify(cache).replace(7L, expected, NOW);
     }
 
     @Test
-    void frischeUndGecachteKurseSindGleich() {
-        // NF-08 (Docs #81): Twelve Data liefert mehr Nachkommastellen, als price_history speichert
-        when(cache.load(7L)).thenReturn(Optional.empty());
-        when(provider.getHistoricalPrices("EUNL", "XETR", "1month", 120)).thenReturn(List.of(
+    void kurseWerdenAufSechsNachkommastellenGerundet() {
+        // NF-08 (Docs #81): gleiche Werte wie aus dem Kurs-Cache (NUMERIC(19,6))
+        when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(List.of(
                 new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.12345650")),
                 new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.98765449"))));
 
-        List<PricePoint> fresh = service.getMonthlyPrices(asset);
-
-        // So liefert Postgres die Werte beim nächsten Lauf aus dem Cache (NUMERIC(19,6))
-        List<PricePoint> cachedLater = List.of(
-                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.123457")),
-                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.987654")));
-        assertThat(fresh).isEqualTo(cachedLater);
-
-        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(NOW, cachedLater)));
-        assertThat(service.getMonthlyPrices(asset)).isEqualTo(fresh);
+        assertThat(service.getMonthlyPrices(asset)).extracting(PricePoint::close)
+                .containsExactly(new BigDecimal("100.123457"), new BigDecimal("101.987654"));
     }
 
     @Test
-    void leereAntwortWirdNichtGespeichert() {
-        when(cache.load(7L)).thenReturn(Optional.empty());
-        when(provider.getHistoricalPrices("EUNL", "XETR", "1month", 120)).thenReturn(List.of());
+    void laufenderMonatWirdAusgeschlossen() {
+        // B5 (E22): Abruf am 11.10.2026, der Anbieter liefert bereits einen Wert für Oktober
+        when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(withOctober());
 
-        assertThat(service.getMonthlyPrices(asset)).isEmpty();
-        verify(cache, never()).replace(any(), any(), any());
-    }
-
-    @Test
-    void laufenderMonatWirdBeimAbrufAusgeschlossenAberGespeichert() {
-        // B5 (E22): Abruf am 11.10.2026, Twelve Data liefert bereits einen Wert für Oktober
-        when(cache.load(7L)).thenReturn(Optional.empty());
-        when(provider.getHistoricalPrices("EUNL", "XETR", "1month", 120)).thenReturn(List.of(
-                new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102")),
-                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101")),
-                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100"))));
-
-        List<PricePoint> result = service.getMonthlyPrices(asset);
-
-        assertThat(result).extracting(PricePoint::date)
+        assertThat(service.getMonthlyPrices(asset)).extracting(PricePoint::date)
                 .containsExactly(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 9, 1));
-        // Der Cache enthält die Rohdaten inklusive Oktober, damit er nach dem Monatswechsel gültig bleibt
-        verify(cache).replace(7L, List.of(
-                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.000000")),
-                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.000000")),
-                new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102.000000"))), NOW);
-    }
-
-    @Test
-    void laufenderMonatAusDemCacheWirdAusgeschlossen() {
-        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(
-                NOW.minus(Duration.ofHours(1)), withOctober())));
-
-        assertThat(service.getMonthlyPrices(asset)).isEqualTo(CACHED);
     }
 
     @Test
     void nachDemMonatswechselZaehltDerAbgeschlosseneMonat() {
-        // feste Uhr: 01.11.2026 00:00 UTC, Cache vom 31.10.2026 23:00 UTC ist noch gültig
-        Instant novemberFirst = Instant.parse("2026-11-01T00:00:00Z");
-        PriceHistoryService november = new PriceHistoryService(provider, cache, Clock.fixed(novemberFirst, ZoneOffset.UTC));
-        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(
-                novemberFirst.minus(Duration.ofHours(1)), withOctober())));
+        PriceHistoryService november = new PriceHistoryService(provider,
+                Clock.fixed(Instant.parse("2026-11-01T00:00:00Z"), ZoneOffset.UTC));
+        when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(withOctober());
 
-        assertThat(november.getMonthlyPrices(asset)).isEqualTo(withOctober());
+        assertThat(november.getMonthlyPrices(asset)).hasSize(3);
     }
 
     @Test
     void letzterTagDesMonatsGehoertNochZumLaufendenMonat() {
-        Instant lastDay = Instant.parse("2026-10-31T23:59:59Z");
-        PriceHistoryService octoberEnd = new PriceHistoryService(provider, cache, Clock.fixed(lastDay, ZoneOffset.UTC));
-        when(cache.load(7L)).thenReturn(Optional.of(new PriceCache.CachedPrices(
-                lastDay.minus(Duration.ofHours(1)), withOctober())));
+        PriceHistoryService octoberEnd = new PriceHistoryService(provider,
+                Clock.fixed(Instant.parse("2026-10-31T23:59:59Z"), ZoneOffset.UTC));
+        when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(withOctober());
 
-        assertThat(octoberEnd.getMonthlyPrices(asset)).isEqualTo(CACHED);
-    }
-
-    private static List<PricePoint> withOctober() {
-        return List.of(CACHED.get(0), CACHED.get(1), new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102")));
+        assertThat(octoberEnd.getMonthlyPrices(asset)).hasSize(2);
     }
 
     @Test
-    void genau24hGiltAlsVeraltet() {
-        assertThat(PriceHistoryService.isFresh(NOW.minus(Duration.ofHours(24)), NOW)).isFalse();
-        assertThat(PriceHistoryService.isFresh(NOW.minus(Duration.ofHours(24)).plusSeconds(1), NOW)).isTrue();
+    void leereAntwortErgibtLeereListe() {
+        when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(List.of());
+
+        assertThat(service.getMonthlyPrices(asset)).isEmpty();
+    }
+
+    @Test
+    void anbieterNichtErreichbarLiefert503() {
+        when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120))
+                .thenThrow(new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null));
+
+        assertThatThrownBy(() -> service.getMonthlyPrices(asset)).isInstanceOf(UpstreamUnavailableException.class);
+    }
+
+    private static List<PricePoint> withOctober() {
+        return List.of(
+                new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102")),
+                new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101")),
+                new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100")));
     }
 }

@@ -2,22 +2,18 @@ package com.lookupstock.backend.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.model.Asset;
-import com.lookupstock.backend.service.PriceCache;
 import com.lookupstock.backend.service.PriceHistoryService;
 
 /** NF-12: Die Testattrappe liefert die Testdaten aus Abschnitt 6 des Testkonzepts. */
@@ -81,11 +77,9 @@ class MockMarketDataProviderTest {
 
     @Test
     void priceHistoryServiceSortsMockDataAscending() {
-        // Zusammenspiel mit dem echten Service: leerer Cache, also Abruf beim Mock
-        PriceCache cache = mock(PriceCache.class);
-        when(cache.load(1L)).thenReturn(Optional.empty());
+        // Zusammenspiel mit dem echten Service (der Kurs-Cache liegt seit BE #106 im marktdaten-service)
         Clock clock = Clock.fixed(Instant.parse("2026-10-11T12:00:00Z"), ZoneOffset.UTC);
-        PriceHistoryService service = new PriceHistoryService(provider, cache, clock);
+        PriceHistoryService service = new PriceHistoryService(provider, clock);
         Asset asset = new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR");
         ReflectionTestUtils.setField(asset, "id", 1L);
 

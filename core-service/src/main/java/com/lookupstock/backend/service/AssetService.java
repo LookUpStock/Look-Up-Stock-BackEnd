@@ -14,17 +14,16 @@ import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.repository.AssetRepository;
 
 import jakarta.transaction.Transactional;
+
 @Service
 public class AssetService {
 
     private final MarketDataProvider marketDataProvider;
     private final AssetRepository assetRepository;
-    private final SearchCache searchCache;
 
-    public AssetService(MarketDataProvider marketDataProvider, AssetRepository assetRepository, SearchCache searchCache) {
+    public AssetService(MarketDataProvider marketDataProvider, AssetRepository assetRepository) {
         this.marketDataProvider = marketDataProvider;
         this.assetRepository = assetRepository;
-        this.searchCache = searchCache;
     }
 
     @Transactional
@@ -41,9 +40,9 @@ public class AssetService {
         if (!errors.isEmpty()) {
             throw new ValidationException(errors.get(0).message(), errors);
         }
-                // Treffer kommen 24 h aus dem Cache, nur bei Cache-Fehlschlag wird Twelve Data gefragt (NF-02)
+        // Der Such-Cache (24 h, NF-02) liegt seit BE #106 im marktdaten-service (ADR-07)
         String trimmedQuery = query.trim();
-        return searchCache.getOrLoad(trimmedQuery, () -> marketDataProvider.search(trimmedQuery)).stream()
+        return marketDataProvider.search(trimmedQuery).stream()
                 .limit(max)
                 .map(this::findOrCreate)
                 .toList();
