@@ -1,4 +1,4 @@
-# Lesende GraphQL-Schnittstelle von LookUpStock (BE #94)
+# GraphQL-Schnittstelle von LookUpStock: lesend (BE #94) und schreibend (BE #108)
 # Anmeldung wie bei REST: Header "Authorization: Bearer <token>" (ADR-06)
 
 type Query {
@@ -67,4 +67,139 @@ type Metrics {
     maxDrawdownMedian: Float!
     "null ohne Zielbetrag"
     targetProbability: Float
+}
+
+# ---------- Schreibende Operationen (BE #108) ----------
+# Gleiche Fachlogik, Prüfregeln und Fehlermeldungen wie bei REST (ADR-02). Alle Mutations verlangen die Anmeldung.
+# Eingabefelder sind bewusst optional, damit fehlende Werte dieselben Meldungen liefern wie bei REST
+# (z. B. „Bitte gib einen Namen an.“) statt eines allgemeinen GraphQL-Fehlers.
+
+type Mutation {
+    "Portfolio anlegen wie POST /portfolios (US-03)"
+    createPortfolio(input: PortfolioInput!): Portfolio!
+
+    "Eigenes Portfolio ändern wie PUT /portfolios/{id} (US-06)"
+    updatePortfolio(id: ID!, input: PortfolioInput!): Portfolio!
+
+    "Eigenes Portfolio löschen wie DELETE /portfolios/{id} (US-06); true bei Erfolg"
+    deletePortfolio(id: ID!): Boolean!
+
+    "Simulation rechnen wie POST /simulations (US-04); mit save: true zusätzlich speichern (US-08)"
+    simulate(input: SimulationInput!): SimulationResult!
+
+    "Gespeicherte Simulation löschen wie DELETE /simulations/{id} (US-08); true bei Erfolg"
+    deleteSavedSimulation(id: ID!): Boolean!
+
+    "Zwei Einträge vergleichen wie POST /comparisons (US-07)"
+    compare(input: ComparisonInput!): ComparisonResult!
+}
+
+input PortfolioInput {
+    name: String
+    positions: [PositionInput]
+}
+
+input PositionInput {
+    assetId: ID
+    "Gewichtung in Prozent, Summe aller Positionen 100"
+    weight: Float
+}
+
+input SimulationParametersInput {
+    startCapital: Float
+    monthlyContribution: Float
+    "1 bis 40 ganze Jahre"
+    horizonYears: Int
+    "1.000 bis 50.000, Standard 10.000"
+    paths: Int
+    "Ohne Seed wird einer erzeugt und im Ergebnis zurückgegeben (NF-08); exakt bis 2^53"
+    seed: Float
+    targetAmount: Float
+}
+
+input SimulationInput {
+    portfolioId: ID
+    parameters: SimulationParametersInput
+    "true = Ergebnis zusätzlich speichern; dann ist name Pflicht"
+    save: Boolean
+    name: String
+}
+
+input ComparisonItemInput {
+    label: String
+    "Genau eines von portfolioId und assetId"
+    portfolioId: ID
+    assetId: ID
+}
+
+input ComparisonInput {
+    items: [ComparisonItemInput]
+    parameters: SimulationParametersInput
+}
+
+type SimulationResult {
+    "null, wenn nicht gespeichert"
+    id: ID
+    name: String
+    portfolioId: ID!
+    parameters: SimulationParameters!
+    estimates: Estimates!
+    timeline: [TimelinePoint!]!
+    metrics: Metrics!
+    runtimeMs: Float!
+    createdAt: String
+}
+
+type SimulationParameters {
+    startCapital: Float!
+    monthlyContribution: Float!
+    horizonYears: Int!
+    paths: Int!
+    seed: Float!
+    targetAmount: Float
+}
+
+type Estimates {
+    "Erster und letzter Monat des Schätzzeitraums (ISO-8601)"
+    historyFrom: String!
+    historyTo: String!
+    assets: [AssetEstimate!]!
+}
+
+type AssetEstimate {
+    assetId: ID!
+    annualReturn: Float!
+    annualVolatility: Float!
+}
+
+type TimelinePoint {
+    "Monat ab Start, beginnend bei 0"
+    month: Int!
+    p5: Float!
+    p50: Float!
+    p95: Float!
+}
+
+type ComparisonResult {
+    parameters: SimulationParameters!
+    estimates: Estimates!
+    results: [ComparisonItem!]!
+    pairwise: [PairwiseComparison!]!
+    runtimeMs: Float!
+    createdAt: String
+}
+
+type ComparisonItem {
+    label: String!
+    portfolioId: ID
+    assetId: ID
+    timeline: [TimelinePoint!]!
+    metrics: Metrics!
+}
+
+type PairwiseComparison {
+    a: Int!
+    b: Int!
+    "Anteil der Pfade, in denen Eintrag a am Ende mehr wert ist als Eintrag b"
+    probabilityAOutperformsB: Float!
 }
