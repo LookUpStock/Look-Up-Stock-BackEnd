@@ -46,6 +46,13 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("UNAUTHORIZED", e.getMessage(), List.of()));
     }
 
+    // E40: angemeldet, aber ohne Berechtigung (403 statt 404, es geht nicht um eine fremde Ressource)
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of("FORBIDDEN", e.getMessage(), List.of()));
+    }
+
     @ExceptionHandler(InsufficientDataException.class)
     public ResponseEntity<ErrorResponse> handleInsufficientData(InsufficientDataException e) {
         List<ErrorDetail> details = e.getAssets().stream()

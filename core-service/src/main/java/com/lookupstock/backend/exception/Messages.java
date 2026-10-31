@@ -15,6 +15,8 @@ public final class Messages {
     public static final String EMAIL_INVALID = "Bitte gib eine gültige E-Mail-Adresse ein.";
     public static final String INVALID_CREDENTIALS = "E-Mail oder Passwort ist falsch.";
     public static final String NOT_LOGGED_IN = "Bitte melde dich an.";
+    // E40: angemeldet, aber ohne die Rolle Geschäftsführung
+    public static final String FORBIDDEN = "Dafür fehlt die Berechtigung.";
 
     // Suche
     public static final String QUERY_TOO_SHORT = "Bitte mindestens 2 Zeichen eingeben.";
@@ -28,6 +30,10 @@ public final class Messages {
     public static final String UNSUPPORTED_MEDIA_TYPE = "Der Content-Type muss application/json sein.";
     public static final String BAD_REQUEST = "Die Anfrage ist ungültig.";
     public static final String INTERNAL_ERROR = "Ein unerwarteter Fehler ist aufgetreten.";
+
+    // Auswertungen (US-11, E38)
+    public static final String REPORT_NOT_AVAILABLE = "Für diesen Monat liegen keine Auswertungen vor.";
+    public static final String MONTH_FORMAT = "Bitte gib den Monat im Format JJJJ-MM an.";
 
     // Portfolio
     public static final String NAME_INVALID = "Bitte einen Namen mit höchstens 100 Zeichen eingeben.";
