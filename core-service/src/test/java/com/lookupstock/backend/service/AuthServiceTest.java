@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.lookupstock.backend.model.UserRole;
 import com.lookupstock.backend.dto.LoginResponse;
 import com.lookupstock.backend.exception.ConflictException;
 import com.lookupstock.backend.exception.UnauthorizedException;
@@ -114,6 +115,8 @@ class AuthServiceTest {
         assertThat(response.token()).hasSize(43);
         assertThat(AuthService.TOKEN_VALIDITY).isEqualTo(Duration.ofHours(24));
         assertThat(response.expiresAt()).isEqualTo(NOW.plus(AuthService.TOKEN_VALIDITY));
+                // Neue Konten haben die Rolle USER (E40)
+        assertThat(response.role()).isEqualTo(UserRole.USER);
         verify(authTokenRepository).save(any(AuthToken.class));
     }
 

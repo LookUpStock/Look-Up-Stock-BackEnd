@@ -40,10 +40,22 @@ Flyway legt die Tabellen beim Start über die Migrationen in `src/main/resources
 | `V5__kursdaten_geladen.sql` | leer (Platzhalter, bereits angewendet, nicht ändern) |
 | `V6__kursdaten_cache.sql` | Tabelle `price_history` (Kurs-Cache, NF-07) |
 | `V7__simulation_speichern.sql` | Tabelle `simulation` (gespeicherte Simulationen, US-08) |
+| `V8__asset_mic_code_verlaengern.sql` | Spalte `asset.mic_code` auf 50 Zeichen verlängert (B6) |
+| `V9__nutzungsereignisse_und_rolle.sql` | Tabelle `usage_event` (anonyme Nutzungsereignisse, US-11) und Spalte `role` in `app_user` (E40) |
 
-Hibernate ändert das Schema nicht, sondern prüft nur, ob es zu den Entities passt (`spring.jpa.hibernate.ddl-auto=validate`). Schemaänderungen daher immer als neue Migration `V8__...sql` anlegen, bestehende Migrationen nicht ändern.
+Hibernate ändert das Schema nicht, sondern prüft nur, ob es zu den Entities passt (`spring.jpa.hibernate.ddl-auto=validate`). Schemaänderungen daher immer als neue Migration mit der nächsten freien Nummer anlegen, bestehende Migrationen nicht ändern.
 
 Zeitstempel werden in UTC gespeichert (`hibernate.jdbc.time_zone=UTC`) und in der API als ISO-8601 mit `Z` ausgegeben, z. B. `2026-09-30T10:12:00Z`.
+
+## Rolle Geschäftsführung vergeben
+
+Die Auswertungen (US-11, US-12) sind nur mit der Rolle `MANAGER` erreichbar (E40). Neue Konten erhalten bei der Registrierung immer `USER`; eine Oberfläche zur Rollenvergabe gibt es bewusst nicht (E42). Die Rolle wird direkt in der Datenbank gesetzt:
+
+```sql
+UPDATE app_user SET role = 'MANAGER' WHERE email = 'geschaeftsfuehrung@example.com';
+```
+
+Auf Heroku z. B. über `heroku pg:psql -a <app-name>`. Die Änderung gilt ab der nächsten Anmeldung (die Login-Antwort enthält `role`).
 
 ## Umgebungsvariablen
 
