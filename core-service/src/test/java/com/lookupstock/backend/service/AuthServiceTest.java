@@ -28,7 +28,9 @@ import com.lookupstock.backend.exception.ConflictException;
 import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.AuthToken;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AuthTokenRepository;
 import com.lookupstock.backend.repository.UserRepository;
 
@@ -39,6 +41,7 @@ class AuthServiceTest {
     private UserRepository userRepository;
     private AuthTokenRepository authTokenRepository;
     private PasswordEncoder passwordEncoder;
+    private UsageEventRecorder usageEventRecorder;
     private AuthService service;
 
     @BeforeEach
@@ -46,8 +49,9 @@ class AuthServiceTest {
         userRepository = mock(UserRepository.class);
         authTokenRepository = mock(AuthTokenRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
+        usageEventRecorder = mock(UsageEventRecorder.class);
         service = new AuthService(userRepository, authTokenRepository, passwordEncoder,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC), usageEventRecorder);
 
         when(userRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
         when(passwordEncoder.encode("geheim123")).thenReturn("HASH");
@@ -61,6 +65,8 @@ class AuthServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getPasswordHash()).isEqualTo("HASH").isNotEqualTo("geheim123");
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.REGISTRATION);
     }
 
     @Test
@@ -75,6 +81,8 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.register("anna@example.com", "geheim123"))
                 .isInstanceOf(ConflictException.class);
         verify(userRepository, never()).saveAndFlush(any());
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     @Test
@@ -118,6 +126,8 @@ class AuthServiceTest {
                 // Neue Konten haben die Rolle USER (E40)
         assertThat(response.role()).isEqualTo(UserRole.USER);
         verify(authTokenRepository).save(any(AuthToken.class));
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.LOGIN);
     }
 
     @Test
@@ -134,6 +144,8 @@ class AuthServiceTest {
         assertThat(unbekannt).isInstanceOf(UnauthorizedException.class);
         assertThat(falschesPasswort.getMessage()).isEqualTo(unbekannt.getMessage());
         verify(authTokenRepository, never()).save(any());
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     // ---------- authenticate ----------

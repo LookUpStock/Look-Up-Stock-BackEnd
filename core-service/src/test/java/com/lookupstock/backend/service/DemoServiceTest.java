@@ -31,7 +31,9 @@ import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.SimulationRun;
 import com.lookupstock.backend.model.TimelinePoint;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.WeightedAsset;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
 /** US-09: Beispielsimulation im Gastmodus, ohne Speichern. */
@@ -40,6 +42,7 @@ class DemoServiceTest {
     private AssetRepository assetRepository;
     private ParameterEstimator estimator;
     private SimulationService simulationService;
+    private UsageEventRecorder usageEventRecorder;
     private DemoService service;
 
     private Asset world;
@@ -53,7 +56,8 @@ class DemoServiceTest {
         assetRepository = mock(AssetRepository.class);
         estimator = mock(ParameterEstimator.class);
         simulationService = mock(SimulationService.class);
-        service = new DemoService(assetRepository, estimator, simulationService);
+        usageEventRecorder = mock(UsageEventRecorder.class);
+        service = new DemoService(assetRepository, estimator, simulationService, usageEventRecorder);
 
         world = new Asset("URTH", null, "iShares MSCI World ETF", "NYSE", "USD", "ETF", "ARCX");
         ReflectionTestUtils.setField(world, "id", 1L);
@@ -99,6 +103,8 @@ class DemoServiceTest {
         assertThat(result.timeline()).isEqualTo(run.timeline());
         assertThat(result.metrics()).isEqualTo(run.metrics());
         assertThat(result.runtimeMs()).isGreaterThanOrEqualTo(0);
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.DEMO_SIMULATION_RUN);
     }
 
     @Test
@@ -131,6 +137,8 @@ class DemoServiceTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(Messages.DEMO_PORTFOLIO_NOT_FOUND);
         verifyNoInteractions(estimator);
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     @Test

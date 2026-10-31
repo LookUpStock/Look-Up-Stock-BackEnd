@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -35,7 +36,9 @@ import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.SimulationRun;
 import com.lookupstock.backend.model.TimelinePoint;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 
 /** BE #50: Ablauf laut Sequenzdiagramm US-04 und Fehlerfälle. */
 class SimulationServiceTest {
@@ -46,6 +49,7 @@ class SimulationServiceTest {
     private ParameterEstimator estimator;
     private MonteCarloEngine engine;
     private MetricsCalculator metrics;
+    private UsageEventRecorder usageEventRecorder;
     private SimulationService service;
 
     private Asset asset;
@@ -61,7 +65,8 @@ class SimulationServiceTest {
         estimator = mock(ParameterEstimator.class);
         engine = mock(MonteCarloEngine.class);
         metrics = mock(MetricsCalculator.class);
-        service = new SimulationService(portfolioService, estimator, engine, metrics, () -> 731L);
+        usageEventRecorder = mock(UsageEventRecorder.class);
+        service = new SimulationService(portfolioService, estimator, engine, metrics, usageEventRecorder, () -> 731L);
 
         asset = new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR");
         ReflectionTestUtils.setField(asset, "id", 1L);
@@ -98,6 +103,8 @@ class SimulationServiceTest {
         assertThat(result.timeline()).isEqualTo(timeline);
         assertThat(result.metrics()).isEqualTo(sampleMetrics);
         assertThat(result.runtimeMs()).isGreaterThanOrEqualTo(0);
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.SIMULATION_RUN);
     }
 
     @Test
@@ -155,6 +162,8 @@ class SimulationServiceTest {
         assertThatThrownBy(() -> service.simulate(5L, params(42L), OWNER))
                 .isInstanceOf(UpstreamUnavailableException.class);
         verifyNoInteractions(engine);
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     @Test

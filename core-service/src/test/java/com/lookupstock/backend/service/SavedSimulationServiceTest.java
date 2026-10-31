@@ -31,7 +31,9 @@ import com.lookupstock.backend.model.SavedSimulation;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.SavedSimulationRepository;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -50,6 +52,7 @@ class SavedSimulationServiceTest {
 
     private SavedSimulationRepository repository;
     private PortfolioService portfolioService;
+    private UsageEventRecorder usageEventRecorder;
     private SavedSimulationService service;
     private Portfolio portfolio;
 
@@ -57,7 +60,9 @@ class SavedSimulationServiceTest {
     void setUp() {
         repository = mock(SavedSimulationRepository.class);
         portfolioService = mock(PortfolioService.class);
-        service = new SavedSimulationService(repository, portfolioService, JsonMapper.builder().build());
+        usageEventRecorder = mock(UsageEventRecorder.class);
+        service = new SavedSimulationService(repository, portfolioService, JsonMapper.builder().build(),
+                usageEventRecorder);
 
         portfolio = new Portfolio("Weltportfolio", OWNER);
         ReflectionTestUtils.setField(portfolio, "id", 5L);
@@ -97,6 +102,8 @@ class SavedSimulationServiceTest {
         assertThat(saved.getTargetAmount()).isEqualByComparingTo(BigDecimal.valueOf(100_000));
         assertThat(saved.getRuntimeMs()).isEqualTo(123L);
         verify(repository).save(saved);
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.SIMULATION_SAVED);
     }
 
     @Test
@@ -113,6 +120,8 @@ class SavedSimulationServiceTest {
         assertThatThrownBy(() -> service.save(result(null), "Fremd", OTHER))
                 .isInstanceOf(NotFoundException.class);
         verify(repository, never()).save(any());
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     // ---------- readResult ----------

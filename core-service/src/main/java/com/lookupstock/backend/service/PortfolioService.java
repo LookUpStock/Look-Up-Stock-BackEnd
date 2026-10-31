@@ -15,7 +15,9 @@ import com.lookupstock.backend.exception.NotFoundException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Portfolio;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 import com.lookupstock.backend.repository.PortfolioRepository;
 
@@ -24,15 +26,21 @@ public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
     private final AssetRepository assetRepository;
+    private final UsageEventRecorder usageEventRecorder;
 
-    public PortfolioService(PortfolioRepository portfolioRepository, AssetRepository assetRepository) {
+    public PortfolioService(PortfolioRepository portfolioRepository, AssetRepository assetRepository,
+                            UsageEventRecorder usageEventRecorder) {
         this.portfolioRepository = portfolioRepository;
         this.assetRepository = assetRepository;
+        this.usageEventRecorder = usageEventRecorder;
     }
 
     @Transactional
     public Portfolio create(PortfolioRequest request, User owner) {
-        return portfolioRepository.save(buildValidated(request, owner));
+        Portfolio portfolio = portfolioRepository.save(buildValidated(request, owner));
+        // Nur erfolgreich angelegte Portfolios zählen (E37)
+        usageEventRecorder.record(UsageEventType.PORTFOLIO_CREATED);
+        return portfolio;
     }
 
     /**
