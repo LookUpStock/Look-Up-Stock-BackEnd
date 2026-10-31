@@ -1,5 +1,6 @@
 package com.lookupstock.backend.controller;
 
+import com.lookupstock.backend.model.UserRole;
 import com.lookupstock.backend.dto.LoginResponse;
 import com.lookupstock.backend.exception.ConflictException;
 import com.lookupstock.backend.exception.GlobalExceptionHandler;
@@ -61,14 +62,15 @@ class AuthControllerTest {
     @Test
     void login_liefert200MitToken() throws Exception {
         when(authService.login("anna@example.com", "geheim123"))
-                .thenReturn(new LoginResponse("abc", Instant.parse("2026-10-14T12:00:00Z")));
+                .thenReturn(new LoginResponse("abc", Instant.parse("2026-10-14T12:00:00Z"), UserRole.USER));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"anna@example.com\",\"password\":\"geheim123\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("abc"))
-                .andExpect(jsonPath("$.expiresAt").value("2026-10-14T12:00:00Z"));
+                .andExpect(jsonPath("$.expiresAt").value("2026-10-14T12:00:00Z"))
+                .andExpect(jsonPath("$.role").value("USER"));
     }
 
     @Test
