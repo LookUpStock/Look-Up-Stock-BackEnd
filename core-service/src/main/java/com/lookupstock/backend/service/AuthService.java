@@ -89,7 +89,7 @@ public class AuthService {
         Instant expiresAt = clock.instant().truncatedTo(ChronoUnit.SECONDS).plus(TOKEN_VALIDITY);
         String token = generateToken();
         authTokenRepository.save(new AuthToken(token, user, expiresAt));
-        return new LoginResponse(token, expiresAt);
+        return new LoginResponse(token, expiresAt, user.getRole());
     }
 
     @Transactional
