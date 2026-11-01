@@ -28,6 +28,7 @@ import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.Position;
 import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.PricePreloadRequester;
 import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 import com.lookupstock.backend.repository.PortfolioRepository;
@@ -44,6 +45,7 @@ class PortfolioServiceTest {
     private PortfolioRepository portfolioRepository;
     private AssetRepository assetRepository;
     private UsageEventRecorder usageEventRecorder;
+    private PricePreloadRequester pricePreloadRequester;
 
     // Der echte Service, der getestet wird
     private PortfolioService service;
@@ -54,7 +56,8 @@ class PortfolioServiceTest {
         portfolioRepository = mock(PortfolioRepository.class);
         assetRepository = mock(AssetRepository.class);
         usageEventRecorder = mock(UsageEventRecorder.class);
-        service = new PortfolioService(portfolioRepository, assetRepository, usageEventRecorder);
+        pricePreloadRequester = mock(PricePreloadRequester.class);
+        service = new PortfolioService(portfolioRepository, assetRepository, usageEventRecorder, pricePreloadRequester);
 
         // ★ save() gibt das übergebene Portfolio unverändert zurück, wie die echte Datenbank
         when(portfolioRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -145,6 +148,8 @@ class PortfolioServiceTest {
         assertThat(result).isSameAs(saved);
         // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
         verify(usageEventRecorder).record(UsageEventType.PORTFOLIO_CREATED);
+        // Kurse werden im marktdaten-service vorgeladen (ADR-07, kursdaten.vorladen)
+        verify(pricePreloadRequester).request(saved);
     }
 
     // ---------- create: unbekannte Anlagen (Prüfung im Service) ----------
@@ -166,6 +171,8 @@ class PortfolioServiceTest {
         verify(portfolioRepository, never()).save(any());
         // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
         verify(usageEventRecorder, never()).record(any());
+        // und löst kein Vorladen aus
+        verify(pricePreloadRequester, never()).request(any());
     }
 
     @Test
@@ -290,6 +297,8 @@ class PortfolioServiceTest {
         assertThat(result.getPositions().get(0)).isSameAs(applePosition);
         assertThat(result.getUpdatedAt()).isNotNull();
         verify(portfolioRepository).save(existing);
+        // auch nach dem Ändern vorladen, damit neue Anlagen (NVDA) im Cache landen
+        verify(pricePreloadRequester).request(existing);
     }
 
     @Test
@@ -307,6 +316,7 @@ class PortfolioServiceTest {
         assertThat(existing.getName()).isEqualTo("Alt");
         assertThat(existing.getPositions()).extracting(Position::getWeight).containsExactly(new BigDecimal("100"));
         verify(portfolioRepository, never()).save(any());
+        verify(pricePreloadRequester, never()).request(any());
     }
 
     @Test
