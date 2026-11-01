@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -30,13 +33,16 @@ import com.lookupstock.backend.model.UsageMetric;
 import com.lookupstock.backend.model.UsageReport;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.AuthService;
+import com.lookupstock.backend.service.UsageReportCsvWriter;
 import com.lookupstock.backend.service.UsageReportService;
 
 /**
- * Controller-Tests für GET /api/v1/reports/usage (BE #111): 200, 400, 401, 403 und Aufbau laut API-Design.
+ * Controller-Tests für GET /api/v1/reports/usage (BE #111) und /usage/export (BE #112):
+ * 200, 400, 401, 403 und Aufbau laut API-Design.
  */
 @WebMvcTest(ReportController.class)
-@Import(GlobalExceptionHandler.class)
+// Echter CsvWriter, damit Dateiname und Inhalt mitgeprüft werden
+@Import({ GlobalExceptionHandler.class, UsageReportCsvWriter.class })
 class ReportControllerTest {
 
     @Autowired
@@ -57,13 +63,7 @@ class ReportControllerTest {
 
     @Test
     void mitRolleLiefert200MitNeunKennzahlen() throws Exception {
-        Map<UsageMetric, Long> values = new EnumMap<>(UsageMetric.class);
-        for (UsageMetric metric : UsageMetric.values()) {
-            values.put(metric, 0L);
-        }
-        values.put(UsageMetric.LOGINS, 27L);
-        when(usageReportService.report(eq("2026-10"), eq(USER)))
-                .thenReturn(new UsageReport(YearMonth.of(2026, 10), false, LocalDate.of(2026, 10, 31), values));
+        when(usageReportService.report(eq("2026-10"), eq(USER))).thenReturn(octoberReport());
 
         mockMvc.perform(get("/api/v1/reports/usage").param("month", "2026-10")
                         .header("Authorization", "Bearer gueltig"))
@@ -105,5 +105,46 @@ class ReportControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.message").value("Für diesen Monat liegen keine Auswertungen vor."));
+    }
+
+    // ---------- CSV-Export (BE #112, US-12) ----------
+
+    @Test
+    void exportLiefertCsvDateiMitDateinamenUndInhalt() throws Exception {
+        when(usageReportService.report(eq("2026-10"), eq(USER))).thenReturn(octoberReport());
+
+        mockMvc.perform(get("/api/v1/reports/usage/export").param("month", "2026-10")
+                        .header("Authorization", "Bearer gueltig"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("text/csv;charset=UTF-8"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"lookupstock-nutzung-2026-10.csv\""))
+                .andExpect(content().bytes(new UsageReportCsvWriter().write(octoberReport())));
+    }
+
+    @Test
+    void exportOhneAnmeldungLiefert401() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/usage/export"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(usageReportService);
+    }
+
+    @Test
+    void exportOhneRolleLiefert403AlsJson() throws Exception {
+        when(usageReportService.report(any(), eq(USER))).thenThrow(new ForbiddenException(Messages.FORBIDDEN));
+
+        mockMvc.perform(get("/api/v1/reports/usage/export").header("Authorization", "Bearer gueltig"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    // Oktober 2026 mit 27 Anmeldungen, übrige Kennzahlen 0
+    private static UsageReport octoberReport() {
+        Map<UsageMetric, Long> values = new EnumMap<>(UsageMetric.class);
+        for (UsageMetric metric : UsageMetric.values()) {
+            values.put(metric, 0L);
+        }
+        values.put(UsageMetric.LOGINS, 27L);
+        return new UsageReport(YearMonth.of(2026, 10), false, LocalDate.of(2026, 10, 31), values);
     }
 }

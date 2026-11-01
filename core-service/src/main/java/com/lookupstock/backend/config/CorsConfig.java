@@ -20,6 +20,8 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
+                // US-12: Frontend darf den Dateinamen des CSV-Exports aus der Antwort lesen
+                .exposedHeaders("Content-Disposition")
                 .allowCredentials(true);
     }
 }
