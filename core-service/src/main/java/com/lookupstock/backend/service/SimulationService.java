@@ -18,8 +18,10 @@ import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.SimulationRun;
 import com.lookupstock.backend.model.TimelinePoint;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.model.WeightedAsset;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 
 /**
  * GRASP Controller für den Use-Case „Simulation durchführen“ (ADR-02, BE #50).
@@ -32,14 +34,16 @@ public class SimulationService {
     private final ParameterEstimator parameterEstimator;
     private final MonteCarloEngine engine;
     private final MetricsCalculator metricsCalculator;
+    private final UsageEventRecorder usageEventRecorder;
     private final LongSupplier seedGenerator;
 
     @Autowired
     public SimulationService(PortfolioService portfolioService,
                              ParameterEstimator parameterEstimator,
                              MonteCarloEngine engine,
-                             MetricsCalculator metricsCalculator) {
-        this(portfolioService, parameterEstimator, engine, metricsCalculator,
+                             MetricsCalculator metricsCalculator,
+                             UsageEventRecorder usageEventRecorder) {
+        this(portfolioService, parameterEstimator, engine, metricsCalculator, usageEventRecorder,
                 () -> ThreadLocalRandom.current().nextInt(1, 1_000_000));
     }
 
@@ -48,11 +52,13 @@ public class SimulationService {
                       ParameterEstimator parameterEstimator,
                       MonteCarloEngine engine,
                       MetricsCalculator metricsCalculator,
+                      UsageEventRecorder usageEventRecorder,
                       LongSupplier seedGenerator) {
         this.portfolioService = portfolioService;
         this.parameterEstimator = parameterEstimator;
         this.engine = engine;
         this.metricsCalculator = metricsCalculator;
+        this.usageEventRecorder = usageEventRecorder;
         this.seedGenerator = seedGenerator;
     }
 
@@ -95,6 +101,8 @@ public class SimulationService {
         SimulationRun run = run(weights, estimation, effective);
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
+        // Nur erfolgreiche Simulationen zählen (E37); Vergleich und Beispielsimulation nutzen run() und zählen eigene Ereignisse
+        usageEventRecorder.record(UsageEventType.SIMULATION_RUN);
         return new SimulationResult(portfolio.getId(), effective, estimation, run.timeline(), run.metrics(), runtimeMs);
     }
 

@@ -14,7 +14,9 @@ import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.SavedSimulation;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.SavedSimulationRepository;
 
 import tools.jackson.databind.ObjectMapper;
@@ -31,13 +33,16 @@ public class SavedSimulationService {
     private final SavedSimulationRepository savedSimulationRepository;
     private final PortfolioService portfolioService;
     private final ObjectMapper objectMapper;
+    private final UsageEventRecorder usageEventRecorder;
 
     public SavedSimulationService(SavedSimulationRepository savedSimulationRepository,
                                   PortfolioService portfolioService,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  UsageEventRecorder usageEventRecorder) {
         this.savedSimulationRepository = savedSimulationRepository;
         this.portfolioService = portfolioService;
         this.objectMapper = objectMapper;
+        this.usageEventRecorder = usageEventRecorder;
     }
 
     /** Speichert eine gerade berechnete Simulation unter dem angegebenen Namen. */
@@ -57,7 +62,10 @@ public class SavedSimulationService {
                 p.horizonYears(), p.paths(), p.seed(),
                 p.targetAmount() == null ? null : BigDecimal.valueOf(p.targetAmount()),
                 json, result.runtimeMs());
-        return savedSimulationRepository.save(simulation);
+        SavedSimulation saved = savedSimulationRepository.save(simulation);
+        // Zusätzlich zur durchgeführten Simulation (E37)
+        usageEventRecorder.record(UsageEventType.SIMULATION_SAVED);
+        return saved;
     }
 
     /** Alle eigenen gespeicherten Simulationen, neueste zuerst. */

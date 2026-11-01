@@ -23,7 +23,9 @@ import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.AuthToken;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AuthTokenRepository;
 import com.lookupstock.backend.repository.UserRepository;
 
@@ -42,16 +44,19 @@ public class AuthService {
     private final AuthTokenRepository authTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final UsageEventRecorder usageEventRecorder;
     private final SecureRandom random = new SecureRandom();
 
     public AuthService(UserRepository userRepository,
                        AuthTokenRepository authTokenRepository,
                        PasswordEncoder passwordEncoder,
-                       Clock clock) {
+                       Clock clock,
+                       UsageEventRecorder usageEventRecorder) {
         this.userRepository = userRepository;
         this.authTokenRepository = authTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.usageEventRecorder = usageEventRecorder;
     }
 
     @Transactional
@@ -67,14 +72,18 @@ public class AuthService {
         if (userRepository.existsByEmail(normalized)) {
             throw new ConflictException(Messages.EMAIL_TAKEN);
         }
+        User user;
         try {
             // saveAndFlush, damit ein Verstoß gegen UNIQUE(email) hier auffällt
-            return userRepository.saveAndFlush(
+            user = userRepository.saveAndFlush(
                     new User(normalized, passwordEncoder.encode(password)));
         } catch (DataIntegrityViolationException e) {
             // zwei gleichzeitige Registrierungen mit derselben E-Mail
             throw new ConflictException(Messages.EMAIL_TAKEN);
         }
+        // Nur erfolgreiche Registrierungen zählen (E37)
+        usageEventRecorder.record(UsageEventType.REGISTRATION);
+        return user;
     }
 
     @Transactional
@@ -89,6 +98,8 @@ public class AuthService {
         Instant expiresAt = clock.instant().truncatedTo(ChronoUnit.SECONDS).plus(TOKEN_VALIDITY);
         String token = generateToken();
         authTokenRepository.save(new AuthToken(token, user, expiresAt));
+        // Nur erfolgreiche Anmeldungen zählen (E37)
+        usageEventRecorder.record(UsageEventType.LOGIN);
         return new LoginResponse(token, expiresAt, user.getRole());
     }
 

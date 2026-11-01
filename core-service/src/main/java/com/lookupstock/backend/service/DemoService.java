@@ -15,7 +15,9 @@ import com.lookupstock.backend.model.EstimationResult;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.SimulationRun;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.WeightedAsset;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
 /**
@@ -33,13 +35,16 @@ public class DemoService {
     private final AssetRepository assetRepository;
     private final ParameterEstimator parameterEstimator;
     private final SimulationService simulationService;
+    private final UsageEventRecorder usageEventRecorder;
 
     public DemoService(AssetRepository assetRepository,
                        ParameterEstimator parameterEstimator,
-                       SimulationService simulationService) {
+                       SimulationService simulationService,
+                       UsageEventRecorder usageEventRecorder) {
         this.assetRepository = assetRepository;
         this.parameterEstimator = parameterEstimator;
         this.simulationService = simulationService;
+        this.usageEventRecorder = usageEventRecorder;
     }
 
     public List<DemoPortfolio> portfolios() {
@@ -93,6 +98,8 @@ public class DemoService {
         SimulationRun run = simulationService.run(weights, estimation, effective);
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
+        // Nur erfolgreiche Beispielsimulationen zählen (E37)
+        usageEventRecorder.record(UsageEventType.DEMO_SIMULATION_RUN);
         return new SimulationResult(demo.id(), effective, estimation, run.timeline(), run.metrics(), runtimeMs);
     }
 

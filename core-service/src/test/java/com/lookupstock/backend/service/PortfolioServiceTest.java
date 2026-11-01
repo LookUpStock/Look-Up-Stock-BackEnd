@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,16 +18,17 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.mockito.Mockito.never;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import com.lookupstock.backend.exception.ValidationException;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import com.lookupstock.backend.dto.PortfolioRequest;
 import com.lookupstock.backend.dto.PositionRequest;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
+import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.Position;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 import com.lookupstock.backend.repository.PortfolioRepository;
 
@@ -41,6 +43,7 @@ class PortfolioServiceTest {
     // Gemockte Repositories statt echter Datenbank
     private PortfolioRepository portfolioRepository;
     private AssetRepository assetRepository;
+    private UsageEventRecorder usageEventRecorder;
 
     // Der echte Service, der getestet wird
     private PortfolioService service;
@@ -50,7 +53,8 @@ class PortfolioServiceTest {
     void setUp() {
         portfolioRepository = mock(PortfolioRepository.class);
         assetRepository = mock(AssetRepository.class);
-        service = new PortfolioService(portfolioRepository, assetRepository);
+        usageEventRecorder = mock(UsageEventRecorder.class);
+        service = new PortfolioService(portfolioRepository, assetRepository, usageEventRecorder);
 
         // ★ save() gibt das übergebene Portfolio unverändert zurück, wie die echte Datenbank
         when(portfolioRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -139,6 +143,8 @@ class PortfolioServiceTest {
 
         // Zurückgegeben wird genau das gespeicherte Portfolio
         assertThat(result).isSameAs(saved);
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.PORTFOLIO_CREATED);
     }
 
     // ---------- create: unbekannte Anlagen (Prüfung im Service) ----------
@@ -158,6 +164,8 @@ class PortfolioServiceTest {
 
         // Ungültige Daten dürfen nie gespeichert werden
         verify(portfolioRepository, never()).save(any());
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     @Test

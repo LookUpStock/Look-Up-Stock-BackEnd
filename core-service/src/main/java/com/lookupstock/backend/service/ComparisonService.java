@@ -12,8 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
-import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.exception.ValidationException.FieldError;
+import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.ComparisonEntry;
 import com.lookupstock.backend.model.ComparisonResult;
@@ -21,8 +21,10 @@ import com.lookupstock.backend.model.EstimationResult;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationRun;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.model.WeightedAsset;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
 /**
@@ -40,17 +42,20 @@ public class ComparisonService {
     private final ParameterEstimator parameterEstimator;
     private final SimulationService simulationService;
     private final Clock clock;
+    private final UsageEventRecorder usageEventRecorder;
 
     public ComparisonService(PortfolioService portfolioService,
                              AssetRepository assetRepository,
                              ParameterEstimator parameterEstimator,
                              SimulationService simulationService,
-                             Clock clock) {
+                             Clock clock,
+                             UsageEventRecorder usageEventRecorder) {
         this.portfolioService = portfolioService;
         this.assetRepository = assetRepository;
         this.parameterEstimator = parameterEstimator;
         this.simulationService = simulationService;
         this.clock = clock;
+        this.usageEventRecorder = usageEventRecorder;
     }
 
     /**
@@ -108,6 +113,8 @@ public class ComparisonService {
         }
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
+        // Nur erfolgreiche Vergleiche zählen (E37)
+        usageEventRecorder.record(UsageEventType.COMPARISON_RUN);
         return new ComparisonResult(effective, estimation, items, pairwise, runtimeMs, clock.instant());
     }
 

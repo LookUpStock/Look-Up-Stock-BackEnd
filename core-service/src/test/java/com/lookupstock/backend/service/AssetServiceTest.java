@@ -25,6 +25,8 @@ import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
+import com.lookupstock.backend.model.UsageEventType;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
 
@@ -34,6 +36,7 @@ class AssetServiceTest {
     // Externe Kursdaten-API und Datenbank werden gemockt
     private MarketDataProvider marketDataProvider;
     private AssetRepository assetRepository;
+    private UsageEventRecorder usageEventRecorder;
 
     // Der echte Service, der getestet wird
     private AssetService service;
@@ -44,7 +47,8 @@ class AssetServiceTest {
         marketDataProvider = mock(MarketDataProvider.class);
         assetRepository = mock(AssetRepository.class);
         // Der Such-Cache liegt seit BE #106 im marktdaten-service (SearchServiceTest dort)
-        service = new AssetService(marketDataProvider, assetRepository);
+        usageEventRecorder = mock(UsageEventRecorder.class);
+        service = new AssetService(marketDataProvider, assetRepository, usageEventRecorder);
 
         // save() gibt die übergebene Anlage unverändert zurück
         when(assetRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -62,6 +66,8 @@ class AssetServiceTest {
 
         // Assert: pro Treffer eine Anlage, Reihenfolge bleibt erhalten
         assertThat(result).extracting(Asset::getSymbol).containsExactly("AAPL", "APLE");
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.ASSET_SEARCH);
     }
 
     @Test
@@ -156,6 +162,8 @@ class AssetServiceTest {
     @ValueSource(strings = {"", "   ", "a", " a "})
     void search_queryTooShort_isRejected(String query) {
         assertRejected(query, null, "q", Messages.QUERY_TOO_SHORT);
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     @Test

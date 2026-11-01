@@ -3,8 +3,10 @@ package com.lookupstock.backend.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -34,7 +36,9 @@ import com.lookupstock.backend.model.Estimate;
 import com.lookupstock.backend.model.EstimationResult;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.SimulationParameters;
+import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
 /**
@@ -49,6 +53,7 @@ class ComparisonServiceTest {
     private PortfolioService portfolioService;
     private AssetRepository assetRepository;
     private ParameterEstimator estimator;
+    private UsageEventRecorder usageEventRecorder;
     private ComparisonService service;
 
     private Asset world;
@@ -60,10 +65,11 @@ class ComparisonServiceTest {
         portfolioService = mock(PortfolioService.class);
         assetRepository = mock(AssetRepository.class);
         estimator = mock(ParameterEstimator.class);
+        usageEventRecorder = mock(UsageEventRecorder.class);
         SimulationService simulationService = new SimulationService(portfolioService, estimator,
-                new MonteCarloEngine(), new MetricsCalculator(), () -> 731L);
+                new MonteCarloEngine(), new MetricsCalculator(), usageEventRecorder, () -> 731L);
         service = new ComparisonService(portfolioService, assetRepository, estimator, simulationService,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC), usageEventRecorder);
 
         world = asset(1L, "EUNL", "MSCI World");
         bonds = asset(2L, "IS3N", "Staatsanleihen");
@@ -117,6 +123,10 @@ class ComparisonServiceTest {
         // Verlauf von Monat 0 bis 24
         assertThat(result.items().get(0).timeline()).hasSize(25);
         assertThat(result.items().get(0).metrics().totalContributions()).isEqualTo(12_400.0);
+        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
+        verify(usageEventRecorder).record(UsageEventType.COMPARISON_RUN);
+        // Ein Vergleich zählt nicht als Simulation (E37)
+        verify(usageEventRecorder, never()).record(UsageEventType.SIMULATION_RUN);
     }
 
     @Test
@@ -192,6 +202,8 @@ class ComparisonServiceTest {
                     .hasMessage(Messages.COMPARISON_ITEM_COUNT);
         }
         verifyNoInteractions(portfolioService, estimator);
+        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
+        verify(usageEventRecorder, never()).record(any());
     }
 
     @Test

@@ -11,6 +11,8 @@ import com.lookupstock.backend.client.SearchHit;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.Asset;
+import com.lookupstock.backend.model.UsageEventType;
+import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
 import jakarta.transaction.Transactional;
@@ -20,10 +22,13 @@ public class AssetService {
 
     private final MarketDataProvider marketDataProvider;
     private final AssetRepository assetRepository;
+    private final UsageEventRecorder usageEventRecorder;
 
-    public AssetService(MarketDataProvider marketDataProvider, AssetRepository assetRepository) {
+    public AssetService(MarketDataProvider marketDataProvider, AssetRepository assetRepository,
+                        UsageEventRecorder usageEventRecorder) {
         this.marketDataProvider = marketDataProvider;
         this.assetRepository = assetRepository;
+        this.usageEventRecorder = usageEventRecorder;
     }
 
     @Transactional
@@ -42,10 +47,13 @@ public class AssetService {
         }
         // Der Such-Cache (24 h, NF-02) liegt seit BE #106 im marktdaten-service (ADR-07)
         String trimmedQuery = query.trim();
-        return marketDataProvider.search(trimmedQuery).stream()
+        List<Asset> results = marketDataProvider.search(trimmedQuery).stream()
                 .limit(max)
                 .map(this::findOrCreate)
                 .toList();
+        // Gültige Suche zählt auch ohne Treffer oder aus dem Cache, nicht bei 400 oder 503 (E37)
+        usageEventRecorder.record(UsageEventType.ASSET_SEARCH);
+        return results;
     }
 
     public List<PricePoint> getHistoricalPrices(String symbol, String interval, Integer outputSize) {
