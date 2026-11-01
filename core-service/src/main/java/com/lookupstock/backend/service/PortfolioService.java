@@ -17,6 +17,7 @@ import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
+import com.lookupstock.backend.queue.PricePreloadRequester;
 import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 import com.lookupstock.backend.repository.PortfolioRepository;
@@ -27,12 +28,14 @@ public class PortfolioService {
     private final PortfolioRepository portfolioRepository;
     private final AssetRepository assetRepository;
     private final UsageEventRecorder usageEventRecorder;
+    private final PricePreloadRequester pricePreloadRequester;
 
     public PortfolioService(PortfolioRepository portfolioRepository, AssetRepository assetRepository,
-                            UsageEventRecorder usageEventRecorder) {
+                            UsageEventRecorder usageEventRecorder, PricePreloadRequester pricePreloadRequester) {
         this.portfolioRepository = portfolioRepository;
         this.assetRepository = assetRepository;
         this.usageEventRecorder = usageEventRecorder;
+        this.pricePreloadRequester = pricePreloadRequester;
     }
 
     @Transactional
@@ -40,6 +43,8 @@ public class PortfolioService {
         Portfolio portfolio = portfolioRepository.save(buildValidated(request, owner));
         // Nur erfolgreich angelegte Portfolios zählen (E37)
         usageEventRecorder.record(UsageEventType.PORTFOLIO_CREATED);
+        // Kurse der Anlagen im Hintergrund vorladen, damit die erste Simulation sie im Cache findet (ADR-07)
+        pricePreloadRequester.request(portfolio);
         return portfolio;
     }
 
@@ -53,7 +58,10 @@ public class PortfolioService {
         Portfolio portfolio = findById(id, owner);
         Portfolio draft = buildValidated(request, owner);
         portfolio.updateFrom(draft);
-        return portfolioRepository.save(portfolio);
+        Portfolio saved = portfolioRepository.save(portfolio);
+        // Neu hinzugekommene Anlagen ebenfalls vorladen; bereits gecachte Kurse lädt der marktdaten-service nicht erneut
+        pricePreloadRequester.request(saved);
+        return saved;
     }
 
     /** US-06: Löscht ein eigenes Portfolio samt Positionen. Fremdes oder unbekanntes Portfolio: 404 (NF-04). */

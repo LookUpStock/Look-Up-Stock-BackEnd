@@ -11,6 +11,7 @@ import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lookupstock.marktdaten.model.PricePoint;
@@ -57,8 +58,12 @@ public class PriceCacheRepository {
                 rows.stream().map(r -> new PricePoint(r.date(), r.close())).toList()));
     }
 
-    /** Ersetzt alle Werte von Symbol und MIC-Code durch einen neuen Abruf, in einer Transaktion. */
-    @Transactional
+    /**
+     * Ersetzt alle Werte von Symbol und MIC-Code durch einen neuen Abruf, in einer eigenen Transaktion:
+     * Scheitert das Speichern (z. B. zwei gleichzeitige Abrufe), bleibt die Transaktion des Aufrufers intakt,
+     * etwa die des Queue-Verbrauchers für kursdaten.vorladen.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void replace(String symbol, String micCode, List<PricePoint> prices, Instant fetchedAt) {
         String mic = key(micCode);
         jdbcTemplate.update("DELETE FROM marktdaten.price_cache WHERE symbol = ? AND mic_code = ?", symbol, mic);
