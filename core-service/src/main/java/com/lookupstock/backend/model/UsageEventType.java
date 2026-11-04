@@ -16,10 +16,10 @@ public enum UsageEventType {
     /** Portfolio angelegt (POST /portfolios) */
     PORTFOLIO_CREATED,
 
-    /** Simulation durchgeführt, auch wenn sie gespeichert wird (POST /simulations) */
+    /** Simulation durchgeführt (POST /simulations ohne save, GraphQL simulate ohne save) */
     SIMULATION_RUN,
 
-    /** Simulation gespeichert, zusätzlich zu SIMULATION_RUN (POST /simulations mit save) */
+    /** Simulation gespeichert (POST /simulations mit save); zählt nicht zusätzlich als SIMULATION_RUN (B8) */
     SIMULATION_SAVED,
 
     /** Vergleich durchgeführt (POST /comparisons) */

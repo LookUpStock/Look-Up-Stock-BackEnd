@@ -46,7 +46,10 @@ public class SimulationController {
         SimulationParameters parameters = request.parameters() == null
                 ? null
                 : request.parameters().toSimulationParameters();
-        SimulationResult result = simulationService.simulate(request.portfolioId(), parameters, user);
+        // Beim Speichern zählt nur SIMULATION_SAVED, die Simulation davor ist schon gezählt (B8, E37)
+        SimulationResult result = request.shouldSave()
+                ? simulationService.simulateForSave(request.portfolioId(), parameters, user)
+                : simulationService.simulate(request.portfolioId(), parameters, user);
 
         if (!request.shouldSave()) {
             return ResponseEntity.ok(SimulationResponse.from(result));
