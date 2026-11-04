@@ -92,8 +92,6 @@ Geschützte Endpunkte erwarten den Header `Authorization: Bearer <token>` (ADR-0
 | POST | `/api/v1/auth/login` | Anmelden, liefert Token und Ablaufzeit (24 h) | nein |
 | POST | `/api/v1/auth/logout` | Token ungültig machen, immer `204` | Header optional |
 | GET | `/api/v1/assets/search?q=…&limit=…` | Anlagen suchen (`limit` 1–25, Standard 10) | nein |
-| GET | `/api/v1/assets/{symbol}/stats` | Kennzahlen einer Anlage | nein |
-| GET | `/api/v1/assets/{symbol}/prices` | Kursverlauf einer Anlage | nein |
 | POST | `/api/v1/portfolios` | Portfolio anlegen | ja |
 | GET | `/api/v1/portfolios` | Eigene Portfolios auflisten | ja |
 | GET | `/api/v1/portfolios/{id}` | Ein Portfolio mit Positionen | ja |
