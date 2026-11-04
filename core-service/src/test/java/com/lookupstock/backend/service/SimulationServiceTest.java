@@ -108,6 +108,25 @@ class SimulationServiceTest {
     }
 
     @Test
+    void simulateForSaveRechnetGleichZaehltAberKeineDurchgefuehrteSimulation() {
+        // B8: Beim Speichern hat die Oberfläche schon simuliert; nur SIMULATION_SAVED zählt (E37)
+        SimulationResult result = service.simulateForSave(5L, params(42L), OWNER);
+
+        assertThat(result.portfolioId()).isEqualTo(5L);
+        assertThat(result.parameters().seed()).isEqualTo(42L);
+        assertThat(result.metrics()).isEqualTo(sampleMetrics);
+        verify(engine).simulate(portfolio.getWeights(), estimation, params(42L));
+        verify(usageEventRecorder, never()).record(any());
+    }
+
+    @Test
+    void simulateForSavePrueftEingabenWieSimulate() {
+        assertThatThrownBy(() -> service.simulateForSave(null, params(42L), OWNER))
+                .isInstanceOf(ValidationException.class);
+        verifyNoInteractions(engine, usageEventRecorder);
+    }
+
+    @Test
     void angegebenerSeedBleibtErhalten() {
         assertThat(service.simulate(5L, params(42L), OWNER).parameters().seed()).isEqualTo(42L);
     }

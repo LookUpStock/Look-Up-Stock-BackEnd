@@ -196,7 +196,7 @@ class SimulationControllerTest {
     void simulateWithSave_returns201WithIdNameAndCreatedAt() throws Exception {
         SimulationResult result = sampleResult();
         SavedSimulation saved = sampleSaved();
-        when(simulationService.simulate(any(), any(), eq(OWNER))).thenReturn(result);
+        when(simulationService.simulateForSave(any(), any(), eq(OWNER))).thenReturn(result);
         when(savedSimulationService.save(result, "Mein Plan", OWNER)).thenReturn(saved);
         when(savedSimulationService.readResult(saved))
                 .thenReturn(StoredSimulationResult.from(SimulationResponse.from(result)));
@@ -210,6 +210,8 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.parameters.seed").value(42))
                 .andExpect(jsonPath("$.timeline[1].p50").value(10_250.0))
                 .andExpect(jsonPath("$.createdAt").value("2026-10-18T10:00:00Z"));
+        // B8: Speichern rechnet ohne zweites SIMULATION_RUN
+        verify(simulationService, never()).simulate(any(), any(), any());
     }
 
     @Test
@@ -222,6 +224,7 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.id").isEmpty())
                 .andExpect(jsonPath("$.name").isEmpty());
         verify(savedSimulationService, never()).save(any(), any(), any());
+        verify(simulationService, never()).simulateForSave(any(), any(), any());
     }
 
     @Test

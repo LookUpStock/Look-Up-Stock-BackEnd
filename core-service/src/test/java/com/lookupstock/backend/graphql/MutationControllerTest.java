@@ -28,6 +28,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.lookupstock.backend.dto.PortfolioRequest;
+import com.lookupstock.backend.dto.SimulationResponse;
+import com.lookupstock.backend.dto.StoredSimulationResult;
 import com.lookupstock.backend.exception.InsufficientDataException;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.NotFoundException;
@@ -38,6 +40,7 @@ import com.lookupstock.backend.model.Estimate;
 import com.lookupstock.backend.model.EstimationResult;
 import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.Portfolio;
+import com.lookupstock.backend.model.SavedSimulation;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
@@ -187,6 +190,36 @@ class MutationControllerTest {
         assertThat(captor.getValue().seed()).isEqualTo(42L);
         assertThat(captor.getValue().paths()).isEqualTo(SimulationParameters.DEFAULT_PATHS);
         verify(savedSimulationService, never()).save(any(), any(), any());
+        verify(simulationService, never()).simulateForSave(any(), any(), any());
+    }
+
+    @Test
+    void simulateWithSaveCountsNoSecondSimulationRun() {
+        // B8: Speichern rechnet über simulateForSave, damit nur SIMULATION_SAVED zählt (E37)
+        SimulationResult result = sampleResult();
+        Portfolio portfolio = new Portfolio("Welt", OWNER);
+        ReflectionTestUtils.setField(portfolio, "id", 5L);
+        SavedSimulation saved = new SavedSimulation(OWNER, portfolio, "Plan",
+                BigDecimal.valueOf(10_000), BigDecimal.valueOf(200), 20, 10_000, 42L, null, "{}", 150L);
+        ReflectionTestUtils.setField(saved, "id", 12L);
+        ReflectionTestUtils.setField(saved, "createdAt", Instant.parse("2026-11-04T10:00:00Z"));
+        when(simulationService.simulateForSave(eq(5L), any(), eq(OWNER))).thenReturn(result);
+        when(savedSimulationService.save(result, "Plan", OWNER)).thenReturn(saved);
+        when(savedSimulationService.readResult(saved))
+                .thenReturn(StoredSimulationResult.from(SimulationResponse.from(result)));
+
+        loggedIn().document("""
+                mutation {
+                  simulate(input: {portfolioId: 5, save: true, name: "Plan",
+                                   parameters: {startCapital: 10000, monthlyContribution: 200, horizonYears: 20, seed: 42}}) {
+                    id name
+                  }
+                }""")
+                .execute()
+                .path("simulate.id").entity(Long.class).isEqualTo(12L)
+                .path("simulate.name").entity(String.class).isEqualTo("Plan");
+
+        verify(simulationService, never()).simulate(any(), any(), any());
     }
 
     @Test

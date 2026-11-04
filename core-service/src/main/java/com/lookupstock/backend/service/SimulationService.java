@@ -63,7 +63,8 @@ public class SimulationService {
     }
 
     /**
-     * Führt eine Simulation für ein eigenes Portfolio des Nutzers durch.
+     * Führt eine Simulation für ein eigenes Portfolio des Nutzers durch und zählt sie als
+     * durchgeführte Simulation (E37).
      * Fehler: 400 (Eingaben), 404 (Portfolio fehlt oder gehört einem anderen Nutzer, NF-04),
      * 503 (Kursdaten nicht abrufbar, NF-07), 422 (weniger als 3 Jahre Kurshistorie, E6/E8).
      */
@@ -71,6 +72,23 @@ public class SimulationService {
     // der Kursdaten-Cache schreibt in einer eigenen Transaktion (PriceCache)
     @Transactional(readOnly = true)
     public SimulationResult simulate(Long portfolioId, SimulationParameters parameters, User user) {
+        SimulationResult result = calculate(portfolioId, parameters, user);
+        // Nur erfolgreiche Simulationen zählen (E37); Vergleich und Beispielsimulation nutzen run() und zählen eigene Ereignisse
+        usageEventRecorder.record(UsageEventType.SIMULATION_RUN);
+        return result;
+    }
+
+    /**
+     * Rechnet wie {@link #simulate}, zählt aber keine durchgeführte Simulation.
+     * Für POST /simulations mit save: true: Die Oberfläche hat vorher schon simuliert und dabei
+     * SIMULATION_RUN erfasst; beim Speichern zählt nur SIMULATION_SAVED (B8, E37).
+     */
+    @Transactional(readOnly = true)
+    public SimulationResult simulateForSave(Long portfolioId, SimulationParameters parameters, User user) {
+        return calculate(portfolioId, parameters, user);
+    }
+
+    private SimulationResult calculate(Long portfolioId, SimulationParameters parameters, User user) {
         // 1. Eingaben prüfen (400)
         if (portfolioId == null) {
             throw new ValidationException(Messages.PORTFOLIO_ID_REQUIRED,
@@ -101,8 +119,6 @@ public class SimulationService {
         SimulationRun run = run(weights, estimation, effective);
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
-        // Nur erfolgreiche Simulationen zählen (E37); Vergleich und Beispielsimulation nutzen run() und zählen eigene Ereignisse
-        usageEventRecorder.record(UsageEventType.SIMULATION_RUN);
         return new SimulationResult(portfolio.getId(), effective, estimation, run.timeline(), run.metrics(), runtimeMs);
     }
 

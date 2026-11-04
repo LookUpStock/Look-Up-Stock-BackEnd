@@ -82,7 +82,10 @@ public class MutationController {
         SimulationParameters parameters = input.parameters() == null
                 ? null
                 : input.parameters().toSimulationParameters();
-        SimulationResult result = simulationService.simulate(input.portfolioId(), parameters, user);
+        // Beim Speichern zählt nur SIMULATION_SAVED, die Simulation davor ist schon gezählt (B8, E37)
+        SimulationResult result = input.shouldSave()
+                ? simulationService.simulateForSave(input.portfolioId(), parameters, user)
+                : simulationService.simulate(input.portfolioId(), parameters, user);
 
         if (!input.shouldSave()) {
             return SimulationResponse.from(result);

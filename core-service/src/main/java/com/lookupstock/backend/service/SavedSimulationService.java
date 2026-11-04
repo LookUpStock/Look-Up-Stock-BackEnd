@@ -63,7 +63,7 @@ public class SavedSimulationService {
                 p.targetAmount() == null ? null : BigDecimal.valueOf(p.targetAmount()),
                 json, result.runtimeMs());
         SavedSimulation saved = savedSimulationRepository.save(simulation);
-        // Zusätzlich zur durchgeführten Simulation (E37)
+        // Nur das Speichern zählt; die Simulation davor wurde schon als SIMULATION_RUN erfasst (B8, E37)
         usageEventRecorder.record(UsageEventType.SIMULATION_SAVED);
         return saved;
     }
