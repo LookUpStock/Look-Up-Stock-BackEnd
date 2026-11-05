@@ -16,13 +16,6 @@ import org.springframework.stereotype.Service;
 import com.lookupstock.marktdaten.model.PricePoint;
 import com.lookupstock.marktdaten.twelvedata.MarketDataProvider;
 
-/**
- * Historische Kurse für den core-service (NF-07). Monatswerte (interval=1month), die die Simulation braucht,
- * kommen 24 h aus dem Kurs-Cache in Postgres, ohne Twelve Data aufzurufen. Ältere oder fehlende Werte werden
- * neu abgerufen; ist Twelve Data dann nicht erreichbar, wird die UpstreamUnavailableException (503) weitergegeben
- * und kein veralteter Cache verwendet. Andere Intervalle (z. B. 1day für Kennzahlen) werden nicht zwischengespeichert.
- * Geliefert werden die Rohdaten inklusive des laufenden Monats; abgeschlossene Monate wählt der core-service aus (E22).
- */
 @Service
 public class PriceService {
 
@@ -30,11 +23,7 @@ public class PriceService {
 
     static final Duration MAX_CACHE_AGE = Duration.ofHours(24);
     static final String MONTHLY_INTERVAL = "1month";
-    /**
-     * Nachkommastellen wie in der Spalte price_cache.close_price (NUMERIC(19,6)). Frisch geladene Kurse werden
-     * genauso gerundet wie gespeicherte, damit frische und gecachte Kurse bei gleichem Seed dasselbe Ergebnis liefern
-     * (NF-08, Docs #81).
-     */
+    // Fresh prices are rounded like cached ones so both give the same result for the same seed.
     static final int PRICE_SCALE = 6;
 
     private final MarketDataProvider marketDataProvider;
@@ -54,7 +43,6 @@ public class PriceService {
         return getMonthlyPrices(symbol, micCode, outputSize);
     }
 
-    /** @return Monatswerte aufsteigend nach Datum; leer, wenn Twelve Data für die Anlage keine Kurse kennt */
     List<PricePoint> getMonthlyPrices(String symbol, String micCode, int outputSize) {
         Instant now = clock.instant();
 
@@ -63,7 +51,6 @@ public class PriceService {
             return cached.get().prices();
         }
 
-        // wirft UpstreamUnavailableException, wenn Twelve Data nicht erreichbar ist (503)
         List<PricePoint> fresh = marketDataProvider.getHistoricalPrices(symbol, micCode, MONTHLY_INTERVAL, outputSize);
 
         List<PricePoint> sorted = fresh.stream()
@@ -75,14 +62,13 @@ public class PriceService {
             try {
                 priceCache.replace(symbol, micCode, sorted, now);
             } catch (DataAccessException e) {
-                // z. B. zwei gleichzeitige Abrufe derselben Anlage; die Kurse sind trotzdem gültig
                 log.warn("Kurs-Cache für {} ({}) nicht gespeichert – {}", symbol, micCode, e.getMessage());
             }
         }
         return sorted;
     }
 
-    // „jünger als 24 h“: genau 24 h alt gilt bereits als veraltet
+    // Exactly 24 h old already counts as stale.
     static boolean isFresh(Instant fetchedAt, Instant now) {
         return fetchedAt.isAfter(now.minus(MAX_CACHE_AGE));
     }

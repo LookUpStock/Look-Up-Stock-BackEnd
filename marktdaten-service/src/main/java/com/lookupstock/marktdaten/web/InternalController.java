@@ -12,10 +12,7 @@ import com.lookupstock.marktdaten.model.SearchHit;
 import com.lookupstock.marktdaten.service.PriceService;
 import com.lookupstock.marktdaten.service.SearchService;
 
-/**
- * Interne Endpunkte, nur für den core-service (ADR-07); geschützt durch den InternalApiKeyFilter.
- * Symbol und Börse kommen als Query-Parameter, damit auch Symbole mit „/“ (z. B. BTC/USD) funktionieren.
- */
+// Symbol and exchange are query parameters so symbols containing "/" (e.g. BTC/USD) work.
 @RestController
 @RequestMapping("/internal")
 public class InternalController {
@@ -30,13 +27,11 @@ public class InternalController {
         this.priceService = priceService;
     }
 
-    /** GET /internal/search?q=msci – Treffer in der Reihenfolge des Anbieters */
     @GetMapping("/search")
     public List<SearchHit> search(@RequestParam(required = false) String q) {
         return searchService.search(q);
     }
 
-    /** GET /internal/prices?symbol=URTH&mic=ARCX&interval=1month&outputsize=120 – Monatswerte aus dem Cache */
     @GetMapping("/prices")
     public List<PricePoint> prices(@RequestParam(required = false) String symbol,
                                    @RequestParam(required = false) String mic,

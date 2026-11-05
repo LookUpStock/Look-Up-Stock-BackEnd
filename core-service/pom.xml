@@ -6,7 +6,7 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>4.1.1</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/>
 	</parent>
 	<groupId>com.lookupstock</groupId>
 	<artifactId>backend</artifactId>
@@ -63,7 +63,7 @@
     <groupId>org.flywaydb</groupId>
     <artifactId>flyway-database-postgresql</artifactId>
 </dependency>
-		<!-- BE #30: nur BCrypt, bewusst nicht spring-boot-starter-security -->
+		<!-- Only BCrypt; spring-boot-starter-security is not needed -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-crypto</artifactId>
@@ -106,20 +106,17 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
-			<!-- Testabdeckung mit JaCoCo (NF-11, Testkonzept Abschnitt 9) -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
 				<version>0.8.14</version>
 				<executions>
-					<!-- Agent vor den Tests starten, damit die Ausführung aufgezeichnet wird -->
 					<execution>
 						<id>prepare-agent</id>
 						<goals>
 							<goal>prepare-agent</goal>
 						</goals>
 					</execution>
-					<!-- Bericht über alle Klassen nach den Tests (HTML, XML, CSV unter target/site/jacoco) -->
 					<execution>
 						<id>report</id>
 						<phase>verify</phase>
@@ -127,7 +124,6 @@
 							<goal>report</goal>
 						</goals>
 					</execution>
-					<!-- Build schlägt fehl, wenn die Kernlogik unter 80 % Zeilenabdeckung fällt -->
 					<execution>
 						<id>check-core-logic</id>
 						<phase>verify</phase>
@@ -135,7 +131,6 @@
 							<goal>check</goal>
 						</goals>
 						<configuration>
-							<!-- Kernlogik laut Testkonzept Abschnitt 9 -->
 							<includes>
 								<include>com/lookupstock/backend/service/ParameterEstimator*</include>
 								<include>com/lookupstock/backend/service/MonteCarloEngine*</include>

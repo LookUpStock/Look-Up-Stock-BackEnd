@@ -37,7 +37,7 @@ public class AuthController {
         return authService.login(request.email(), request.password());
     }
 
-    // idempotent: ohne oder mit ungültigem Header trotzdem 204
+    // Idempotent: 204 even without or with an invalid header.
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {

@@ -1,6 +1,3 @@
-# GraphQL-Schnittstelle von LookUpStock: lesend (BE #94) und schreibend (BE #108)
-# Anmeldung wie bei REST: Header "Authorization: Bearer <token>" (ADR-06)
-
 type Query {
     "Anlagensuche wie GET /assets/search; ohne Anmeldung. limit 1 bis 25, Standard 10"
     searchAssets(query: String!, limit: Int): [Asset!]!
@@ -69,10 +66,7 @@ type Metrics {
     targetProbability: Float
 }
 
-# ---------- Schreibende Operationen (BE #108) ----------
-# Gleiche Fachlogik, Prüfregeln und Fehlermeldungen wie bei REST (ADR-02). Alle Mutations verlangen die Anmeldung.
-# Eingabefelder sind bewusst optional, damit fehlende Werte dieselben Meldungen liefern wie bei REST
-# (z. B. „Bitte gib einen Namen an.“) statt eines allgemeinen GraphQL-Fehlers.
+# Input fields are optional on purpose so missing values produce the same messages as REST instead of a generic GraphQL error.
 
 type Mutation {
     "Portfolio anlegen wie POST /portfolios (US-03)"

@@ -21,11 +21,9 @@ class SearchCacheTest {
 
     private static final Instant START = Instant.parse("2026-10-17T12:00:00Z");
 
-    // Aktuelle Uhrzeit im Test; kann vorgestellt werden, um den Ablauf zu prüfen
     private Instant now;
     private SearchCache cache;
 
-    // Zählt, wie oft die Finanzdaten-API abgefragt wurde
     private AtomicInteger loaderCalls;
 
     @BeforeEach
@@ -37,14 +35,11 @@ class SearchCacheTest {
         loaderCalls = new AtomicInteger();
     }
 
-    // ---------- Cache-Treffer ----------
-
     @Test
     void getOrLoad_sameQueryTwice_loadsOnlyOnce() {
         List<SearchHit> first = cache.getOrLoad("apple", loader(hit("AAPL")));
         List<SearchHit> second = cache.getOrLoad("apple", loader(hit("OTHER")));
 
-        // Die zweite Abfrage kommt aus dem Cache, der zweite loader wird nie aufgerufen
         assertThat(loaderCalls).hasValue(1);
         assertThat(second).isEqualTo(first).extracting(SearchHit::symbol).containsExactly("AAPL");
     }
@@ -71,12 +66,9 @@ class SearchCacheTest {
         cache.getOrLoad("xyzxyz", loader());
         List<SearchHit> second = cache.getOrLoad("xyzxyz", loader(hit("AAPL")));
 
-        // Auch "keine Treffer" ist eine gültige Antwort und wird nicht erneut abgefragt
         assertThat(loaderCalls).hasValue(1);
         assertThat(second).isEmpty();
     }
-
-    // ---------- Ablauf nach 24 Stunden ----------
 
     @Test
     void getOrLoad_justBefore24Hours_isStillCached() {
@@ -95,12 +87,9 @@ class SearchCacheTest {
         now = START.plus(SearchCache.TIME_TO_LIVE);
         List<SearchHit> refreshed = cache.getOrLoad("apple", loader(hit("AAPL"), hit("APLE")));
 
-        // Der Eintrag ist abgelaufen, die neuen Treffer ersetzen die alten
         assertThat(loaderCalls).hasValue(2);
         assertThat(refreshed).extracting(SearchHit::symbol).containsExactly("AAPL", "APLE");
     }
-
-    // ---------- Fehler der Finanzdaten-API ----------
 
     @Test
     void getOrLoad_loaderFails_storesNothing() {
@@ -112,15 +101,11 @@ class SearchCacheTest {
             throw failure;
         })).isSameAs(failure);
 
-        // Beim nächsten Versuch wird erneut abgefragt, statt einen Fehler zu liefern
         List<SearchHit> retry = cache.getOrLoad("apple", loader(hit("AAPL")));
         assertThat(loaderCalls).hasValue(2);
         assertThat(retry).extracting(SearchHit::symbol).containsExactly("AAPL");
     }
 
-    // ---------- Hilfsmethoden ----------
-
-    // Liefert einen loader, der die übergebenen Treffer zurückgibt und seine Aufrufe zählt
     private Supplier<List<SearchHit>> loader(SearchHit... hits) {
         return () -> {
             loaderCalls.incrementAndGet();
@@ -128,7 +113,6 @@ class SearchCacheTest {
         };
     }
 
-    // Erzeugt einen Suchtreffer mit Standardwerten
     private static SearchHit hit(String symbol) {
         return new SearchHit(symbol, symbol + " Inc.", "NASDAQ", "XNAS", "USD", "Common Stock");
     }

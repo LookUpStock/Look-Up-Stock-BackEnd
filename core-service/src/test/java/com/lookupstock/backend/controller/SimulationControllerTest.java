@@ -64,7 +64,6 @@ class SimulationControllerTest {
     @MockitoBean
     private AuthService authService;
 
-    // Neue Abhängigkeit des Controllers (BE #68); ohne Mock startet der Web-Kontext im Test nicht
     @MockitoBean
     private SavedSimulationService savedSimulationService;
 
@@ -162,9 +161,6 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.error.code").value("UPSTREAM_UNAVAILABLE"));
     }
 
-    // ---------- US-08: Simulationen speichern (BE #68) ----------
-
-    // Gerechnetes Ergebnis wie in simulationLiefert200MitErgebnis
     private SimulationResult sampleResult() {
         SimulationParameters params = new SimulationParameters(10_000.0, 200.0, 20, 10_000, 42L);
         return new SimulationResult(5L, params,
@@ -175,7 +171,6 @@ class SimulationControllerTest {
                 123);
     }
 
-    // Gespeicherte Simulation mit ID 12, wie sie aus der Datenbank käme
     private SavedSimulation sampleSaved() {
         Portfolio portfolio = new Portfolio("Weltportfolio", OWNER);
         ReflectionTestUtils.setField(portfolio, "id", 5L);
@@ -210,7 +205,6 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.parameters.seed").value(42))
                 .andExpect(jsonPath("$.timeline[1].p50").value(10_250.0))
                 .andExpect(jsonPath("$.createdAt").value("2026-10-18T10:00:00Z"));
-        // B8: Speichern rechnet ohne zweites SIMULATION_RUN
         verify(simulationService, never()).simulate(any(), any(), any());
     }
 

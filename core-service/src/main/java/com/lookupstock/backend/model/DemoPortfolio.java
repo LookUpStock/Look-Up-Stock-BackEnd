@@ -3,14 +3,12 @@ package com.lookupstock.backend.model;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** US-09: fest vorgegebenes Beispielportfolio für Gäste; nicht in der Datenbank, gehört keinem Nutzer. */
 public record DemoPortfolio(long id, String name, List<Position> positions) {
 
-    /** Anlage des Beispielportfolios; weight in Prozent wie beim Portfolio. */
     public record Position(String symbol, String micCode, String name, String exchange,
                            String currency, String type, BigDecimal weight) {}
 
-    // US-Anlagen, weil Twelve Data im kostenlosen Tarif keine Xetra-Kurse liefert (F3, Docs #80, PO-Entscheidung 18.10.2026)
+    // US-listed assets: the Twelve Data free plan has no Xetra prices.
     public static final List<DemoPortfolio> ALL = List.of(
         new DemoPortfolio(900, "Beispiel: Weltportfolio", List.of(
             new Position("URTH", "ARCX", "iShares MSCI World ETF", "NYSE", "USD", "ETF", new BigDecimal("100")))),

@@ -6,12 +6,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-// KI-Log Nr. 17: Test-Endpunkt mit Claude erstellt, vom Team geprüft
-
-/**
- * Einfacher Erreichbarkeitstest für Frontend und Deployment.
- */
-
 @RestController
 
 @RequestMapping("/api/v1")

@@ -23,7 +23,6 @@ import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.PortfolioService;
 
-/** BE #91: Token kommt im Header „Authorization: Bearer &lt;token&gt;“; geprüft über GET /api/v1/portfolios. */
 @WebMvcTest(PortfolioController.class)
 @Import(GlobalExceptionHandler.class)
 class CurrentUserArgumentResolverTest {
@@ -78,7 +77,6 @@ class CurrentUserArgumentResolverTest {
 
     @Test
     void authServiceOhneNutzerLiefert401() throws Exception {
-        // authenticate liefert normalerweise einen Nutzer oder wirft; null wird trotzdem abgefangen
         mockMvc.perform(get("/api/v1/portfolios").header("Authorization", "Bearer unbekannt"))
                 .andExpect(status().isUnauthorized());
 

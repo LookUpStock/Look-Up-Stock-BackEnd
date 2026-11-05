@@ -22,10 +22,6 @@ import com.lookupstock.backend.repository.UsageEventRepository;
 
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Unit-Tests für UsageEventConsumer (BE #114): Übertragen in usage_event, Löschen nach Erfolg,
- * Fehlversuche zählen und nach drei Versuchen als fehlgeschlagen markieren (ADR-07).
- */
 class UsageEventConsumerTest {
 
     private static final Instant OCCURRED_AT = Instant.parse("2026-10-31T22:59:58Z");
@@ -52,7 +48,6 @@ class UsageEventConsumerTest {
         ArgumentCaptor<UsageEvent> captor = ArgumentCaptor.forClass(UsageEvent.class);
         verify(usageEventRepository).save(captor.capture());
         assertThat(captor.getValue().getEventType()).isEqualTo(UsageEventType.COMPARISON_RUN);
-        // Zeitpunkt der Aktion aus der Nachricht, nicht der Verarbeitung
         assertThat(captor.getValue().getOccurredAt()).isEqualTo(OCCURRED_AT);
         verify(queueMessageRepository).delete(message);
     }

@@ -35,22 +35,17 @@ import com.lookupstock.backend.repository.PortfolioRepository;
 
 class PortfolioServiceTest {
 
-    // Angemeldeter Nutzer, dem die angelegten Portfolios gehören
     private static final User OWNER = new User("anna@example.com", "hash");
 
-    // Ein zweiter Nutzer, dem die Portfolios von OWNER nicht gehören
     private static final User OTHER = new User("ben@example.com", "hash");
 
-    // Gemockte Repositories statt echter Datenbank
     private PortfolioRepository portfolioRepository;
     private AssetRepository assetRepository;
     private UsageEventRecorder usageEventRecorder;
     private PricePreloadRequester pricePreloadRequester;
 
-    // Der echte Service, der getestet wird
     private PortfolioService service;
 
-    // Läuft vor JEDEM Test: frische Mocks, damit sich Tests nicht gegenseitig beeinflussen
     @BeforeEach
     void setUp() {
         portfolioRepository = mock(PortfolioRepository.class);
@@ -59,44 +54,32 @@ class PortfolioServiceTest {
         pricePreloadRequester = mock(PricePreloadRequester.class);
         service = new PortfolioService(portfolioRepository, assetRepository, usageEventRecorder, pricePreloadRequester);
 
-        // ★ save() gibt das übergebene Portfolio unverändert zurück, wie die echte Datenbank
         when(portfolioRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
-    // ---------- findAll ----------
-
     @Test
     void findAll_returnsPortfoliosOfOwnerFromRepository() {
-        // Arrange: Repository liefert zwei Portfolios des Nutzers
         Portfolio first = new Portfolio("Depot A", OWNER);
         Portfolio second = new Portfolio("Depot B", OWNER);
         when(portfolioRepository.findAllByOwnerOrderByCreatedAtDesc(OWNER)).thenReturn(List.of(first, second));
 
-        // Act
         List<Portfolio> result = service.findAll(OWNER);
 
-        // Assert: genau diese zwei, in dieser Reihenfolge
         assertThat(result).containsExactly(first, second);
     }
 
-    // ---------- findById ----------
-
     @Test
     void findById_existingId_returnsPortfolio() {
-        // Arrange: Repository findet das Portfolio
         Portfolio portfolio = new Portfolio("Depot A", OWNER);
         when(portfolioRepository.findByIdAndOwner(1L, OWNER)).thenReturn(Optional.of(portfolio));
 
-        // Act + Assert: es kommt genau dasselbe Objekt zurück
         assertThat(service.findById(1L, OWNER)).isSameAs(portfolio);
     }
 
     @Test
     void findById_unknownId_throwsNotFound() {
-        // Arrange: Repository findet nichts, die ID gibt es nicht
         when(portfolioRepository.findByIdAndOwner(99L, OWNER)).thenReturn(Optional.empty());
 
-        // Act + Assert: Exception mit der erwarteten Meldung
         assertThatThrownBy(() -> service.findById(99L, OWNER))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(Messages.PORTFOLIO_NOT_FOUND);
@@ -104,33 +87,25 @@ class PortfolioServiceTest {
 
     @Test
     void findById_portfolioEinesAnderenNutzers_liefert404_NF04() {
-        // Arrange: Portfolio 1 gehört OWNER, für OTHER findet das Repository nichts
         when(portfolioRepository.findByIdAndOwner(1L, OTHER)).thenReturn(Optional.empty());
 
-        // Act + Assert: dieselbe Meldung wie bei einer unbekannten ID
         assertThatThrownBy(() -> service.findById(1L, OTHER))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(Messages.PORTFOLIO_NOT_FOUND);
 
-        // Das ungefilterte findById darf nie benutzt werden
         verify(portfolioRepository, never()).findById(any());
     }
 
-    // ---------- create: Erfolgsfall ----------
-
     @Test
     void create_validPortfolio_savesAndReturnsIt() {
-        // Arrange: zwei bekannte Anlagen in der "Datenbank"
         Asset apple = asset(1L, "AAPL");
         Asset microsoft = asset(2L, "MSFT");
         when(assetRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(apple, microsoft));
 
-        // Act: Portfolio mit 60 % + 40 % anlegen
         Portfolio result = service.create(request("Mein Depot",
                 position(1L, "60"),
                 position(2L, "40")), OWNER);
 
-        // Assert: Das Portfolio, das an save() ging, abfangen und prüfen
         ArgumentCaptor<Portfolio> captor = ArgumentCaptor.forClass(Portfolio.class);
         verify(portfolioRepository).save(captor.capture());
         Portfolio saved = captor.getValue();
@@ -144,22 +119,15 @@ class PortfolioServiceTest {
                 .extracting(Position::getWeight)
                 .containsExactly(new BigDecimal("60"), new BigDecimal("40"));
 
-        // Zurückgegeben wird genau das gespeicherte Portfolio
         assertThat(result).isSameAs(saved);
-        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
         verify(usageEventRecorder).record(UsageEventType.PORTFOLIO_CREATED);
-        // Kurse werden im marktdaten-service vorgeladen (ADR-07, kursdaten.vorladen)
         verify(pricePreloadRequester).request(saved);
     }
 
-    // ---------- create: unbekannte Anlagen (Prüfung im Service) ----------
-
     @Test
     void create_unknownAssetId_throwsValidationAndDoesNotSave() {
-        // Arrange: Die Datenbank kennt keine Anlage mit ID 99
         givenAssets();
 
-        // Act + Assert: Exception mit Gesamtmeldung und Feldfehler
         assertThatThrownBy(() -> service.create(request("Mein Depot", position(99L, "100")), OWNER))
                 .isInstanceOfSatisfying(ValidationException.class, e -> {
                     assertThat(e.getMessage()).isEqualTo(Messages.ASSET_NOT_FOUND);
@@ -167,11 +135,8 @@ class PortfolioServiceTest {
                             new ValidationException.FieldError("positions", Messages.unknownAssetDetail(99L)));
                 });
 
-        // Ungültige Daten dürfen nie gespeichert werden
         verify(portfolioRepository, never()).save(any());
-        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
         verify(usageEventRecorder, never()).record(any());
-        // und löst kein Vorladen aus
         verify(pricePreloadRequester, never()).request(any());
     }
 
@@ -181,8 +146,6 @@ class PortfolioServiceTest {
         assertRejected(request("Mein Depot", position(null, "100")),
                 "positions", Messages.unknownAssetDetail(null));
     }
-
-    // ---------- create: fachliche Regeln (Portfolio.validate) ----------
 
     @Test
     void create_blankName_isRejected() {
@@ -200,7 +163,6 @@ class PortfolioServiceTest {
 
     @Test
     void create_withoutPositions_isRejected() {
-        // positions ist null: Der Service macht daraus eine leere Liste
         assertRejected(new PortfolioRequest("Mein Depot", null),
                 "positions", Messages.POSITIONS_EMPTY);
     }
@@ -212,7 +174,6 @@ class PortfolioServiceTest {
                 "positions", Messages.weightSumDetail(new BigDecimal("90")));
     }
 
-    // Derselbe Test läuft einmal mit "0" und einmal mit "-10"
     @ParameterizedTest
     @ValueSource(strings = {"0", "-10"})
     void create_weightZeroOrNegative_isRejected(String weight) {
@@ -224,7 +185,6 @@ class PortfolioServiceTest {
     @Test
     void create_weightWithThreeDecimals_isRejected() {
         givenAssets(asset(1L, "AAPL"), asset(2L, "MSFT"));
-        // Summe ist genau 100, nur die Nachkommastellen sind falsch
         assertRejected(request("Mein Depot", position(1L, "33.333"), position(2L, "66.667")),
                 "positions", Messages.WEIGHT_TOO_MANY_DECIMALS);
     }
@@ -236,13 +196,10 @@ class PortfolioServiceTest {
                 "positions", Messages.DUPLICATE_ASSET);
     }
 
-    // ---------- create: Grenzwerte ----------
-
     @Test
     void create_nameWithExactly100Characters_isAccepted() {
         givenAssets(asset(1L, "AAPL"));
 
-        // 100 Zeichen sind gerade noch erlaubt
         assertThatCode(() -> service.create(request("a".repeat(100), position(1L, "100")), OWNER))
                 .doesNotThrowAnyException();
         verify(portfolioRepository).save(any());
@@ -252,7 +209,6 @@ class PortfolioServiceTest {
     void create_sumOf99_99_isAcceptedWithinTolerance() {
         givenAssets(asset(1L, "AAPL"), asset(2L, "MSFT"));
 
-        // Abweichung 0,01 liegt noch innerhalb der Toleranz
         assertThatCode(() -> service.create(request("Mein Depot",
                 position(1L, "49.99"), position(2L, "50")), OWNER))
                 .doesNotThrowAnyException();
@@ -263,15 +219,9 @@ class PortfolioServiceTest {
     void create_sumOf99_98_isRejected() {
         givenAssets(asset(1L, "AAPL"), asset(2L, "MSFT"));
 
-        // Abweichung 0,02 liegt außerhalb der Toleranz
         assertRejected(request("Mein Depot", position(1L, "49.98"), position(2L, "50")),
                 "positions", Messages.weightSumDetail(new BigDecimal("99.98")));
     }
-
-    // ---------- Hilfsmethoden ----------
-
-    // Erzeugt eine Test-Anlage mit gesetzter ID
-    // ---------- update (US-06) ----------
 
     @Test
     void update_aendertNameGewichtungenUndAnlagen() {
@@ -285,7 +235,6 @@ class PortfolioServiceTest {
         when(portfolioRepository.findByIdAndOwner(1L, OWNER)).thenReturn(Optional.of(existing));
         givenAssets(apple, nvidia);
 
-        // AAPL bleibt mit neuer Gewichtung, MSFT fällt weg, NVDA kommt dazu
         Portfolio result = service.update(1L, request("Neu", position(1L, "70"), position(3L, "30")), OWNER);
 
         assertThat(result).isSameAs(existing);
@@ -293,11 +242,9 @@ class PortfolioServiceTest {
         assertThat(result.getPositions()).extracting(p -> p.getAsset().getSymbol()).containsExactly("AAPL", "NVDA");
         assertThat(result.getPositions()).extracting(Position::getWeight)
                 .containsExactly(new BigDecimal("70"), new BigDecimal("30"));
-        // bestehende Position wird geändert, nicht neu angelegt (UNIQUE portfolio_id, asset_id)
         assertThat(result.getPositions().get(0)).isSameAs(applePosition);
         assertThat(result.getUpdatedAt()).isNotNull();
         verify(portfolioRepository).save(existing);
-        // auch nach dem Ändern vorladen, damit neue Anlagen (NVDA) im Cache landen
         verify(pricePreloadRequester).request(existing);
     }
 
@@ -329,8 +276,6 @@ class PortfolioServiceTest {
         verify(portfolioRepository, never()).save(any());
     }
 
-    // ---------- delete (US-06) ----------
-
     @Test
     void delete_eigenesPortfolio_wirdGeloescht() {
         Portfolio existing = new Portfolio("Alt", OWNER);
@@ -352,27 +297,22 @@ class PortfolioServiceTest {
 
     private static Asset asset(long id, String symbol) {
         Asset asset = new Asset(symbol, null, symbol + " Inc.", "NASDAQ", "USD", "Common Stock", "XNAS");
-        // Die ID vergibt sonst die Datenbank. Im Test setzen wir das private Feld direkt
         ReflectionTestUtils.setField(asset, "id", id);
         return asset;
     }
 
-    // Erzeugt eine Position für den Request, Gewicht als Text für exakte Dezimalzahlen
     private static PositionRequest position(Long assetId, String weight) {
         return new PositionRequest(assetId, new BigDecimal(weight));
     }
 
-    // Erzeugt einen Portfolio-Request, das Token wird im Service nicht verwendet
     private static PortfolioRequest request(String name, PositionRequest... positions) {
         return new PortfolioRequest(name, List.of(positions));
     }
 
-        // Legt fest, welche Anlagen das gemockte Repository "kennt"
     private void givenAssets(Asset... assets) {
         when(assetRepository.findAllById(any())).thenReturn(List.of(assets));
     }
 
-    // Prüft: Exception fliegt, enthält den erwarteten Feldfehler, und nichts wird gespeichert
     private void assertRejected(PortfolioRequest request, String expectedField, String expectedMessage) {
         assertThatThrownBy(() -> service.create(request, OWNER))
                 .isInstanceOfSatisfying(ValidationException.class, e ->

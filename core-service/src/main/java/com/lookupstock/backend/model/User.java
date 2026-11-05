@@ -29,13 +29,11 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    // Rolle des Nutzerkontos (E40), als Text gespeichert, Standard USER
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role = UserRole.USER;
 
     protected User() {
-        // für JPA
     }
 
     public User(String email, String passwordHash) {

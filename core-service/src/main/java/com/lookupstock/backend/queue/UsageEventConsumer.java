@@ -15,19 +15,13 @@ import com.lookupstock.backend.repository.UsageEventRepository;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Verbraucher für das Thema nutzung.ereignis (US-11, ADR-07).
- * Holt alle 5 Sekunden höchstens 50 Nachrichten ab und überträgt sie in die Tabelle usage_event.
- */
 @Component
 public class UsageEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(UsageEventConsumer.class);
 
-    // Höchstzahl Nachrichten je Durchlauf (ADR-07)
     static final int BATCH_SIZE = 50;
 
-    // Nach so vielen Fehlversuchen wird eine Nachricht nicht weiter versucht (ADR-07)
     static final int MAX_ATTEMPTS = 3;
 
     private final QueueMessageRepository queueMessageRepository;
@@ -42,10 +36,7 @@ public class UsageEventConsumer {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Ein Durchlauf in einer Transaktion: Die Sperre aus lockNextBatch gilt bis zum Ende der Methode.
-     * fixedDelay: Der nächste Durchlauf startet 5 s nach dem Ende des vorherigen.
-     */
+    // One run per transaction so the lock from lockNextBatch is held until the end.
     @Scheduled(fixedDelayString = "${app.queue.poll-interval-ms:5000}")
     @Transactional
     public void processBatch() {
@@ -64,7 +55,6 @@ public class UsageEventConsumer {
             usageEventRepository.save(new UsageEvent(content.type(), content.occurredAt()));
             queueMessageRepository.delete(message);
         } catch (RuntimeException e) {
-            // Nachricht bleibt in der Queue; nach MAX_ATTEMPTS Versuchen wird sie als fehlgeschlagen markiert
             message.registerFailure(e.getMessage(), MAX_ATTEMPTS);
             log.warn("Queue-Nachricht {} konnte nicht verarbeitet werden (Versuch {}): {}",
                     message.getId(), message.getAttempts(), e.getMessage());

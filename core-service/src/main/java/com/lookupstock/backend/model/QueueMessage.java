@@ -12,15 +12,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/**
- * Nachricht in der Queue-Tabelle (BE #114, ADR-07).
- * Der Inhalt liegt als JSON-Text vor; Umwandlung übernehmen Publisher und Verbraucher.
- */
 @Entity
 @Table(name = "queue_message")
 public class QueueMessage {
 
-    // Höchstlänge der gespeicherten Fehlermeldung, wie in V10
     private static final int MAX_ERROR_LENGTH = 500;
 
     @Id
@@ -30,7 +25,6 @@ public class QueueMessage {
     @Column(nullable = false, length = 50)
     private String topic;
 
-    // JSONB-Spalte, wie bei der gespeicherten Simulation (V7)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private String payload;
@@ -48,7 +42,6 @@ public class QueueMessage {
     private String lastError;
 
     protected QueueMessage() {
-        // für JPA
     }
 
     public QueueMessage(String topic, String payload, Instant createdAt) {
@@ -57,9 +50,6 @@ public class QueueMessage {
         this.createdAt = createdAt;
     }
 
-    /**
-     * Vermerkt einen fehlgeschlagenen Versuch. Ab maxAttempts gilt die Nachricht als fehlgeschlagen.
-     */
     public void registerFailure(String error, int maxAttempts) {
         this.attempts++;
         this.lastError = error == null || error.length() <= MAX_ERROR_LENGTH

@@ -51,7 +51,6 @@ import com.lookupstock.backend.service.PortfolioService;
 import com.lookupstock.backend.service.SavedSimulationService;
 import com.lookupstock.backend.service.SimulationService;
 
-/** BE #108: schreibende GraphQL-Operationen mit denselben Regeln und Fehlern wie bei REST. */
 @GraphQlTest(MutationController.class)
 @Import(GraphQlExceptionResolver.class)
 class MutationControllerTest {
@@ -82,7 +81,6 @@ class MutationControllerTest {
         when(authService.authenticate(VALID_TOKEN)).thenReturn(OWNER);
     }
 
-    // Token so in den Kontext legen, wie es der AuthTokenInterceptor bei einer HTTP-Anfrage tut
     private GraphQlTester loggedIn() {
         return graphQlTester.mutate()
                 .configureExecutionInput((input, builder) -> builder
@@ -90,8 +88,6 @@ class MutationControllerTest {
                         .build())
                 .build();
     }
-
-    // ---------- Portfolios ----------
 
     @Test
     void createPortfolioWithoutTokenReturnsUnauthorized() {
@@ -132,7 +128,6 @@ class MutationControllerTest {
 
     @Test
     void updateForeignPortfolioReturnsNotFound() {
-        // NF-04: fremde ID wie nicht vorhanden
         when(portfolioService.update(eq(99L), any(), eq(OWNER)))
                 .thenThrow(new NotFoundException(Messages.PORTFOLIO_NOT_FOUND));
 
@@ -164,8 +159,6 @@ class MutationControllerTest {
                         .satisfies(error -> assertThat(error.getErrorType()).isEqualTo(ErrorType.NOT_FOUND)));
     }
 
-    // ---------- Simulation ----------
-
     @Test
     void simulateWithoutSaveReturnsResultAndSavesNothing() {
         when(simulationService.simulate(eq(5L), any(), eq(OWNER))).thenReturn(sampleResult());
@@ -195,7 +188,6 @@ class MutationControllerTest {
 
     @Test
     void simulateWithSaveCountsNoSecondSimulationRun() {
-        // B8: Speichern rechnet über simulateForSave, damit nur SIMULATION_SAVED zählt (E37)
         SimulationResult result = sampleResult();
         Portfolio portfolio = new Portfolio("Welt", OWNER);
         ReflectionTestUtils.setField(portfolio, "id", 5L);
@@ -266,8 +258,6 @@ class MutationControllerTest {
         verify(savedSimulationService).delete(12L, OWNER);
     }
 
-    // ---------- Vergleich ----------
-
     @Test
     void compareReturnsItemsAndPairwise() {
         when(comparisonService.compare(any(), any(), eq(OWNER))).thenReturn(sampleComparison());
@@ -293,8 +283,6 @@ class MutationControllerTest {
         assertThat(captor.getValue()).containsExactly(
                 new ComparisonEntry("Welt", 5L, null), new ComparisonEntry(null, null, 1L));
     }
-
-    // ---------- Testdaten ----------
 
     private static Asset asset(String symbol, String name, Long id) {
         Asset asset = new Asset(symbol, null, name, "NYSE", "USD", "ETF", "ARCX");

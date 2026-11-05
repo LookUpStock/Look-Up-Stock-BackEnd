@@ -18,11 +18,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
-/**
- * Gespeicherte Simulation eines Nutzers (US-08), Tabelle aus Migration V7.
- * Das berechnete Ergebnis (estimates, timeline, metrics) liegt als JSON-Text in result,
- * damit es beim Abrufen ohne Neuberechnung zurückgegeben werden kann.
- */
 @Entity
 @Table(name = "simulation")
 public class SavedSimulation {
@@ -57,11 +52,9 @@ public class SavedSimulation {
     @Column(nullable = false)
     private long seed;
 
-    // Optional (US-05), daher null erlaubt
     @Column(name = "target_amount", precision = 19, scale = 2)
     private BigDecimal targetAmount;
 
-    // JSONB-Spalte; Umwandlung von und nach JSON übernimmt der Service
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private String result;
@@ -73,7 +66,6 @@ public class SavedSimulation {
     private Instant createdAt;
 
     protected SavedSimulation() {
-        // für JPA
     }
 
     public SavedSimulation(User owner, Portfolio portfolio, String name,
@@ -95,7 +87,6 @@ public class SavedSimulation {
 
     @PrePersist
     void onCreate() {
-        // Auf Sekunden gekürzt wie bei Portfolio, damit die API-Ausgabe keine Nanosekunden enthält
         createdAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     }
 

@@ -18,10 +18,7 @@ jobs:
       run:
         working-directory: marktdaten-service
 
-    # Die Tests brauchen keine Datenbank und rufen Twelve Data nicht auf (NF-12):
-    # Controller mit MockMvc, Services mit Mockito. Darum kein PostgreSQL-Container.
     env:
-      # Dummy-Werte; echte Schlüssel stehen nur in den Heroku-Konfigurationsvariablen
       TWELVE_DATA_API_KEY: ci-dummy-key
       INTERNAL_API_KEY: ci-dummy-internal-key
 

@@ -21,7 +21,6 @@ import com.lookupstock.marktdaten.service.PriceService;
 
 import tools.jackson.databind.json.JsonMapper;
 
-/** ADR-07: Verbraucher für kursdaten.vorladen lädt die Kurse in den Cache und behandelt Fehler wie die Queue im Core. */
 class PricePreloadConsumerTest {
 
     private QueueRepository queue;

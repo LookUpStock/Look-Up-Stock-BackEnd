@@ -35,7 +35,6 @@ public class AuthToken {
     private Instant expiresAt;
 
     protected AuthToken() {
-        // für JPA
     }
 
     public AuthToken(String token, User user, Instant expiresAt) {
@@ -49,7 +48,6 @@ public class AuthToken {
         this.createdAt = Instant.now();
     }
 
-    // Information Expert: das Token kennt seine Ablaufzeit und entscheidet selbst
     public boolean isExpired(Instant now) {
         return !now.isBefore(expiresAt);
     }

@@ -11,10 +11,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-/**
- * Anonymes Nutzungsereignis (US-11, E36).
- * Enthält nur Ereignisart und Zeitpunkt, keinen Bezug zu Nutzer, Anlage oder Suchbegriff.
- */
 @Entity
 @Table(name = "usage_event")
 public class UsageEvent {
@@ -27,12 +23,11 @@ public class UsageEvent {
     @Column(name = "event_type", nullable = false, length = 30)
     private UsageEventType eventType;
 
-    // Zeitpunkt der Aktion, nicht der Verarbeitung aus der Queue
+    // Time of the action, not of queue processing.
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt;
 
     protected UsageEvent() {
-        // für JPA
     }
 
     public UsageEvent(UsageEventType eventType, Instant occurredAt) {

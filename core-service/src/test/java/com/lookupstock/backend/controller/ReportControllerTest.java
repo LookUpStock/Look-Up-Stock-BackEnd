@@ -36,12 +36,7 @@ import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.UsageReportCsvWriter;
 import com.lookupstock.backend.service.UsageReportService;
 
-/**
- * Controller-Tests für GET /api/v1/reports/usage (BE #111) und /usage/export (BE #112):
- * 200, 400, 401, 403 und Aufbau laut API-Design.
- */
 @WebMvcTest(ReportController.class)
-// Echter CsvWriter, damit Dateiname und Inhalt mitgeprüft werden
 @Import({ GlobalExceptionHandler.class, UsageReportCsvWriter.class })
 class ReportControllerTest {
 
@@ -107,8 +102,6 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.error.message").value("Für diesen Monat liegen keine Auswertungen vor."));
     }
 
-    // ---------- CSV-Export (BE #112, US-12) ----------
-
     @Test
     void exportLiefertCsvDateiMitDateinamenUndInhalt() throws Exception {
         when(usageReportService.report(eq("2026-10"), eq(USER))).thenReturn(octoberReport());
@@ -138,7 +131,6 @@ class ReportControllerTest {
                 .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
     }
 
-    // Oktober 2026 mit 27 Anmeldungen, übrige Kennzahlen 0
     private static UsageReport octoberReport() {
         Map<UsageMetric, Long> values = new EnumMap<>(UsageMetric.class);
         for (UsageMetric metric : UsageMetric.values()) {

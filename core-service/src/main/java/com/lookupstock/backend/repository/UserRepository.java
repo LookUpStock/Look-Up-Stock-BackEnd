@@ -13,6 +13,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    // Nutzerkonten, die vor dem Zeitpunkt angelegt wurden (Kennzahl „Nutzerkonten insgesamt“, E39)
     long countByCreatedAtBefore(Instant time);
 }

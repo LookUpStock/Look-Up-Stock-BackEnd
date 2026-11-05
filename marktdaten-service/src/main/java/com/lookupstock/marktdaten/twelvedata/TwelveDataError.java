@@ -1,20 +1,12 @@
 package com.lookupstock.marktdaten.twelvedata;
 
-/**
- * Einordnung der Fehlercodes von Twelve Data.
- * Twelve Data antwortet bei Fehlern meist mit HTTP 200 und {"status":"error","code":…,"message":…}.
- */
+// Twelve Data usually reports errors as HTTP 200 with {"status":"error","code":...}.
 enum TwelveDataError {
 
-    /** 401: API-Key fehlt oder ist ungültig. */
     INVALID_KEY,
-    /** 403: Der Tarif enthält das Symbol bzw. die Börse nicht (z. B. Xetra im kostenlosen Tarif, Docs #80). */
     PLAN_RESTRICTED,
-    /** 429: Kontingent von Anfragen pro Minute bzw. pro Tag ausgeschöpft. */
     RATE_LIMIT,
-    /** 400/404: Symbol bzw. Börse unbekannt oder keine Daten vorhanden. */
     NOT_FOUND,
-    /** Alle übrigen Fehler, z. B. 5xx beim Anbieter. */
     OTHER;
 
     static TwelveDataError fromCode(Integer code) {

@@ -45,14 +45,12 @@ public class PortfolioController {
         return PortfolioResponse.from(portfolioService.findById(portfolioId, owner));
     }
 
-    // US-06: Portfolio ändern; Regeln wie beim Anlegen
     @PutMapping("/{portfolioId}")
     public PortfolioResponse update(@CurrentUser User owner, @PathVariable Long portfolioId,
             @RequestBody PortfolioRequest request) {
         return PortfolioResponse.from(portfolioService.update(portfolioId, request, owner));
     }
 
-    // US-06: Portfolio löschen; 204 ohne Body
     @DeleteMapping("/{portfolioId}")
     public ResponseEntity<Void> delete(@CurrentUser User owner, @PathVariable Long portfolioId) {
         portfolioService.delete(portfolioId, owner);

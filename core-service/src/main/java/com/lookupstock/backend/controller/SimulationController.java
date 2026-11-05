@@ -20,10 +20,6 @@ import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.SavedSimulationService;
 import com.lookupstock.backend.service.SimulationService;
 
-/**
- * Simulationen berechnen (US-04) sowie speichern, auflisten, abrufen und löschen (US-08).
- * Übersetzt nur HTTP; die Fachlogik liegt im SimulationService und im SavedSimulationService (ADR-02).
- */
 @RestController
 @RequestMapping("/api/v1/simulations")
 public class SimulationController {
@@ -37,16 +33,15 @@ public class SimulationController {
         this.savedSimulationService = savedSimulationService;
     }
 
-    /** Rechnet eine Simulation; bei save: true wird sie zusätzlich gespeichert (201 statt 200). */
     @PostMapping
     public ResponseEntity<SimulationResponse> simulate(@CurrentUser User user,
                                                        @RequestBody SimulationRequest request) {
-        // Name vor dem Rechnen prüfen, damit ein fehlender Name nicht erst nach der Berechnung auffällt
+        // Validate the name before computing so a missing name is reported immediately.
         String name = request.validatedName();
         SimulationParameters parameters = request.parameters() == null
                 ? null
                 : request.parameters().toSimulationParameters();
-        // Beim Speichern zählt nur SIMULATION_SAVED, die Simulation davor ist schon gezählt (B8, E37)
+        // When saving, only SIMULATION_SAVED is counted; the preceding simulation was already counted.
         SimulationResult result = request.shouldSave()
                 ? simulationService.simulateForSave(request.portfolioId(), parameters, user)
                 : simulationService.simulate(request.portfolioId(), parameters, user);

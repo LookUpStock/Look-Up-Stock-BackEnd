@@ -14,9 +14,6 @@ import org.junit.jupiter.api.Test;
 import com.lookupstock.backend.model.UsageMetric;
 import com.lookupstock.backend.model.UsageReport;
 
-/**
- * Unit-Tests für UsageReportCsvWriter (BE #112, US-12): Format laut E41.
- */
 class UsageReportCsvWriterTest {
 
     private UsageReportCsvWriter writer;
@@ -42,7 +39,6 @@ class UsageReportCsvWriterTest {
     void dateiBeginntMitBomUndKopfzeile() {
         byte[] bytes = writer.write(report);
 
-        // UTF-8-BOM: EF BB BF
         assertThat(bytes[0]).isEqualTo((byte) 0xEF);
         assertThat(bytes[1]).isEqualTo((byte) 0xBB);
         assertThat(bytes[2]).isEqualTo((byte) 0xBF);
@@ -53,7 +49,6 @@ class UsageReportCsvWriterTest {
     void jeKennzahlEineZeileInFesterReihenfolge() {
         String[] lines = text(writer.write(report)).split("\r\n");
 
-        // Kopfzeile + 9 Kennzahlen
         assertThat(lines).hasSize(10);
         assertThat(lines[1]).isEqualTo("2026-10;Neue Registrierungen;1");
         assertThat(lines[4]).isEqualTo("2026-10;Durchgeführte Simulationen;4");

@@ -7,25 +7,16 @@ import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.ValidationException;
 import com.lookupstock.backend.model.SimulationParameters;
 
-/**
- * Body von POST /api/v1/simulations.
- * Die Zahlen kommen als BigDecimal an, damit Kommazahlen bei Horizont, Pfaden und Seed
- * abgelehnt werden (AT-04-17, AT-04-31) statt still abgeschnitten zu werden.
- */
+// BigDecimal so decimal values for horizon, paths and seed are rejected instead of silently truncated.
 public record SimulationRequest(Long portfolioId, Parameters parameters,
                                 Boolean save, String name) {
 
     private static final int MAX_NAME_LENGTH = 100;
 
-    // save ist optional; fehlt es, wird nur gerechnet und nicht gespeichert
     public boolean shouldSave() {
         return Boolean.TRUE.equals(save);
     }
 
-    /**
-     * Liefert den getrimmten Namen, wenn gespeichert werden soll, sonst null.
-     * Bei save: true ist name Pflicht und höchstens 100 Zeichen lang (API-Design, wie beim Portfolio-Namen).
-     */
     public String validatedName() {
         if (!shouldSave()) {
             return null;
@@ -38,12 +29,10 @@ public record SimulationRequest(Long portfolioId, Parameters parameters,
         return trimmed;
     }
 
-    // targetAmount ist optional (US-05); Kommazahlen sind erlaubt, da es ein Eurobetrag ist
     public record Parameters(BigDecimal startCapital, BigDecimal monthlyContribution,
                              BigDecimal horizonYears, BigDecimal paths, BigDecimal seed,
                              BigDecimal targetAmount) {
 
-        /** Wandelt in SimulationParameters um; Wertebereiche prüft danach SimulationParameters.validate(). */
         public SimulationParameters toSimulationParameters() {
             Integer horizon = wholeNumber(horizonYears, "horizonYears", Messages.HORIZON_INVALID);
             Integer pathCount = wholeNumber(paths, "paths", Messages.PATHS_INVALID);
@@ -62,7 +51,6 @@ public record SimulationRequest(Long portfolioId, Parameters parameters,
                     targetAmount == null ? null : targetAmount.doubleValue());
         }
 
-        // null bleibt null (Pflichtfeld-Prüfung in validate()); Kommazahl oder zu groß → 400
         private static Integer wholeNumber(BigDecimal value, String field, String message) {
             if (value == null) {
                 return null;

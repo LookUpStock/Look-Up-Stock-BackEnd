@@ -46,7 +46,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of("UNAUTHORIZED", e.getMessage(), List.of()));
     }
 
-    // E40: angemeldet, aber ohne Berechtigung (403 statt 404, es geht nicht um eine fremde Ressource)
+    // 403, not 404: a role is missing, it is not someone else's resource.
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -76,8 +76,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleOther(Exception e) {
-        // Spring-eigene Fehler (unbekannte URL, falsche Methode, falscher Content-Type, ...)
-        // bringen ihren HTTP-Status selbst mit und sind kein Serverfehler.
         if (e instanceof org.springframework.web.ErrorResponse springError
                 && springError.getStatusCode().is4xxClientError()) {
             int status = springError.getStatusCode().value();

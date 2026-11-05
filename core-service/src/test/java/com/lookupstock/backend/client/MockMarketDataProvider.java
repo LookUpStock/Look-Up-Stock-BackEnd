@@ -12,17 +12,10 @@ import java.util.Map;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 
-/**
- * Testattrappe der Kursdatenquelle (NF-12, Testkonzept Abschnitt 6).
- * Liefert feste, synthetische Kursreihen ohne Internet und ohne API-Key.
- * Verhält sich wie Twelve Data: neueste Werte zuerst, unbekanntes Symbol ergibt eine leere Liste.
- */
 public class MockMarketDataProvider implements MarketDataProvider {
 
-    /** Letzter Monatswert; passt zu den Testuhren im Oktober 2026 (laufender Monat wird ausgefiltert, E22). */
     public static final LocalDate DEFAULT_LAST_MONTH = LocalDate.of(2026, 9, 1);
 
-    // Symbole der Testdaten
     public static final String WORLD_ETF = "EUNL";
     public static final String EMERGING_ETF = "IS3N";
     public static final String SHORT_HISTORY_A = "SHRT1";
@@ -34,10 +27,8 @@ public class MockMarketDataProvider implements MarketDataProvider {
     public static final int LONG_HISTORY_MONTHS = 120;
     public static final int SHORT_HISTORY_MONTHS = 35;
     public static final int MSCI_SEARCH_HIT_COUNT = 26;
-    /** Konstantes Wachstum pro Monat für das Test-Orakel (Volatilität 0). */
     public static final double CONSTANT_MONTHLY_GROWTH = 0.005;
 
-    // Gleiche Genauigkeit wie price_history.close_price (NUMERIC(19,6))
     private static final int PRICE_SCALE = 6;
 
     private final Map<String, SearchHit> searchHits = new LinkedHashMap<>();
@@ -53,13 +44,11 @@ public class MockMarketDataProvider implements MarketDataProvider {
     public MockMarketDataProvider(LocalDate lastMonth) {
         LocalDate last = lastMonth.withDayOfMonth(1);
 
-        // Normalfälle: zwei Anlagen mit 10 Jahren Historie (Weltportfolio 70 % / 30 %)
         addAsset(new SearchHit(WORLD_ETF, "iShares Core MSCI World UCITS ETF", "XETRA", "XETR", "EUR", "ETF"),
                 fluctuatingSeries(last, LONG_HISTORY_MONTHS, 60.0, 0.006, 0.04));
         addAsset(new SearchHit(EMERGING_ETF, "iShares Core MSCI EM IMI UCITS ETF", "XETRA", "XETR", "EUR", "ETF"),
                 fluctuatingSeries(last, LONG_HISTORY_MONTHS, 25.0, 0.004, 0.07));
 
-        // Grenzwerte E8: 35 Monatswerte (zu kurz) und genau 36 (reicht)
         addAsset(new SearchHit(SHORT_HISTORY_A, "Kurze Historie A", "NASDAQ", "XNAS", "USD", "ETF"),
                 fluctuatingSeries(last, SHORT_HISTORY_MONTHS, 30.0, 0.01, 0.10));
         addAsset(new SearchHit(SHORT_HISTORY_B, "Kurze Historie B", "NASDAQ", "XNAS", "USD", "ETF"),
@@ -67,18 +56,15 @@ public class MockMarketDataProvider implements MarketDataProvider {
         addAsset(new SearchHit(EXACT_36_MONTHS, "Genau drei Jahre", "NASDAQ", "XNAS", "USD", "ETF"),
                 fluctuatingSeries(last, 36, 40.0, 0.005, 0.05));
 
-        // Test-Orakel: Wachstum ohne Schwankung
         addAsset(new SearchHit(CONSTANT_GROWTH, "Konstantes Wachstum", "NYSE", "XNYS", "USD", "ETF"),
                 fluctuatingSeries(last, LONG_HISTORY_MONTHS, 100.0, CONSTANT_MONTHLY_GROWTH, 0.0));
 
-        // Performancetest NF-01: 5 Anlagen mit 10 Jahren Historie
         for (int i = 0; i < PERFORMANCE_SET.size(); i++) {
             String symbol = PERFORMANCE_SET.get(i);
             addAsset(new SearchHit(symbol, "Messanlage " + (i + 1), "NYSE", "XNYS", "USD", "Common Stock"),
                     fluctuatingSeries(last, LONG_HISTORY_MONTHS, 50.0 + 10 * i, 0.003 + 0.001 * i, 0.03 + 0.01 * i));
         }
 
-        // Grenzwerte limit (AT-02-05): mehr als 25 Treffer für „MSCI“, nur Suchtreffer ohne Kurse
         for (int i = 1; i <= MSCI_SEARCH_HIT_COUNT; i++) {
             String symbol = String.format(Locale.ROOT, "MSCI%02d", i);
             searchHits.put(symbol, new SearchHit(symbol, "MSCI Testindex " + i, "NYSE", "XNYS", "USD", "ETF"));
@@ -99,18 +85,14 @@ public class MockMarketDataProvider implements MarketDataProvider {
     public List<PricePoint> getHistoricalPrices(String symbol, String micCode, String interval, int outputSize) {
         priceRequestCount++;
         failIfUnavailable();
-        // Börse und Intervall werden ignoriert: es gibt nur Monatswerte je Symbol
         List<PricePoint> ascending = priceSeries.getOrDefault(symbol, List.of());
-        // Wie Twelve Data: neueste Werte zuerst, höchstens outputSize Stück
         return ascending.reversed().stream().limit(outputSize).toList();
     }
 
-    /** Simuliert einen Ausfall der Finanzdaten-API (NF-07). */
     public void setUnavailable(boolean unavailable) {
         this.unavailable = unavailable;
     }
 
-    /** Anzahl der Kursabrufe; zeigt in Tests, ob der Cache gegriffen hat. */
     public int getPriceRequestCount() {
         return priceRequestCount;
     }
@@ -126,10 +108,6 @@ public class MockMarketDataProvider implements MarketDataProvider {
         }
     }
 
-    /**
-     * Fester Trend mal Sinus-Schwankung, aufsteigend nach Datum.
-     * Ohne Zufall, daher bei jedem Lauf identisch (NF-08). Amplitude 0 ergibt reines Wachstum.
-     */
     private static List<PricePoint> fluctuatingSeries(LocalDate lastMonth, int months,
             double startPrice, double monthlyDrift, double amplitude) {
         LocalDate firstMonth = lastMonth.minusMonths(months - 1L);

@@ -35,7 +35,6 @@ import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
 import com.lookupstock.backend.service.DemoService;
 
-/** US-09: öffentliche Endpunkte des Gastmodus, ohne Authorization-Header. */
 @WebMvcTest(DemoController.class)
 @Import(GlobalExceptionHandler.class)
 class DemoControllerTest {

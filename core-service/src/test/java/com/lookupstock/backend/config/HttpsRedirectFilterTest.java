@@ -47,7 +47,6 @@ class HttpsRedirectFilterTest {
 
     @Test
     void ohneHeaderWirdNichtUmgeleitet() throws Exception {
-        // lokal und in den Tests gibt es keinen Router, der X-Forwarded-Proto setzt
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 

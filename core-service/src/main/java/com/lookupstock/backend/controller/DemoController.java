@@ -12,10 +12,6 @@ import com.lookupstock.backend.dto.SimulationResponse;
 import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.service.DemoService;
 
-/**
- * Gastmodus (US-09): Beispielportfolios und Beispielsimulation ohne Anmeldung.
- * Öffentlich, daher ohne @CurrentUser; die Fachlogik liegt im DemoService (ADR-02).
- */
 @RestController
 @RequestMapping("/api/v1/demo")
 public class DemoController {
@@ -31,7 +27,6 @@ public class DemoController {
         return DemoPortfolioListResponse.from(demoService.portfolios());
     }
 
-    /** Rechnet eine Beispielsimulation; es wird nichts gespeichert (id, name und createdAt sind null). */
     @PostMapping("/simulations")
     public SimulationResponse simulate(@RequestBody DemoSimulationRequest request) {
         SimulationParameters parameters = request.parameters() == null

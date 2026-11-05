@@ -40,7 +40,6 @@ import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.ComparisonService;
 
-/** BE #69: POST /api/v1/comparisons übersetzt nur HTTP (ADR-05). */
 @WebMvcTest(ComparisonController.class)
 @Import(GlobalExceptionHandler.class)
 class ComparisonControllerTest {
@@ -166,7 +165,6 @@ class ComparisonControllerTest {
 
     @Test
     void anbieterAusfallLiefert503() throws Exception {
-        // BE #90, NF-07: weder Cache noch Twelve Data liefern Kurse
         when(comparisonService.compare(any(), any(), any()))
                 .thenThrow(new UpstreamUnavailableException(Messages.UPSTREAM_UNAVAILABLE, null));
 

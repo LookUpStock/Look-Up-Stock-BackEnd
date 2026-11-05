@@ -25,7 +25,6 @@ import com.lookupstock.marktdaten.model.SearchHit;
 import com.lookupstock.marktdaten.service.PriceService;
 import com.lookupstock.marktdaten.service.SearchService;
 
-/** Interne Endpunkte mit Schlüsselprüfung und Fehlerformat (ADR-07). */
 @WebMvcTest(InternalController.class)
 @TestPropertySource(properties = "marktdaten.internal-api-key=test-key")
 class InternalControllerTest {

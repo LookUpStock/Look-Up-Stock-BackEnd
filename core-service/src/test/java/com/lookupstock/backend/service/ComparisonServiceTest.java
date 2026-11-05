@@ -41,10 +41,6 @@ import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
-/**
- * BE #69: Ablauf des Vergleichs laut ADR-05. Engine und Kennzahlen laufen echt,
- * damit gleicher Seed und gleiche Zufallszahlen tatsächlich geprüft werden (NF-08).
- */
 class ComparisonServiceTest {
 
     private static final User OWNER = new User("anna@example.com", "hash");
@@ -82,7 +78,6 @@ class ComparisonServiceTest {
         when(portfolioService.findById(5L, OWNER)).thenReturn(portfolio);
         when(assetRepository.findById(1L)).thenReturn(Optional.of(world));
         when(assetRepository.findById(2L)).thenReturn(Optional.of(bonds));
-        // world deutlich besser als bonds, beide mit kleiner Schwankung: Ergebnis des Paarvergleichs ist eindeutig
         when(estimator.estimate(anyList())).thenReturn(new EstimationResult(
                 LocalDate.of(2016, 10, 1), LocalDate.of(2026, 9, 1),
                 List.of(new Estimate(world, 0.50, 0.01), new Estimate(bonds, 0.0, 0.01))));
@@ -111,7 +106,6 @@ class ComparisonServiceTest {
         ComparisonResult result = service.compare(
                 List.of(ofPortfolio(null, 5L), ofAsset(null, 2L)), params(42L), OWNER);
 
-        // jede Anlage nur einmal, ein Aufruf für beide Einträge (E17)
         verify(estimator, times(1)).estimate(List.of(world, bonds));
         assertThat(result.items()).hasSize(2);
         assertThat(result.items().get(0).portfolioId()).isEqualTo(5L);
@@ -120,12 +114,9 @@ class ComparisonServiceTest {
         assertThat(result.items().get(1).portfolioId()).isNull();
         assertThat(result.estimation().historyFrom()).isEqualTo(LocalDate.of(2016, 10, 1));
         assertThat(result.createdAt()).isEqualTo(NOW);
-        // Verlauf von Monat 0 bis 24
         assertThat(result.items().get(0).timeline()).hasSize(25);
         assertThat(result.items().get(0).metrics().totalContributions()).isEqualTo(12_400.0);
-        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
         verify(usageEventRecorder).record(UsageEventType.COMPARISON_RUN);
-        // Ein Vergleich zählt nicht als Simulation (E37)
         verify(usageEventRecorder, never()).record(UsageEventType.SIMULATION_RUN);
     }
 
@@ -153,7 +144,6 @@ class ComparisonServiceTest {
                 List.of(ofAsset(null, 1L), ofAsset(null, 1L)), params(null), OWNER);
 
         assertThat(result.parameters().seed()).isEqualTo(731L);
-        // gleiche Anlage, gleiche Zufallszahlen: identische Ergebnisse
         assertThat(result.items().get(0).timeline()).isEqualTo(result.items().get(1).timeline());
         assertThat(result.items().get(0).metrics()).isEqualTo(result.items().get(1).metrics());
         verify(estimator).estimate(List.of(world));
@@ -202,7 +192,6 @@ class ComparisonServiceTest {
                     .hasMessage(Messages.COMPARISON_ITEM_COUNT);
         }
         verifyNoInteractions(portfolioService, estimator);
-        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
         verify(usageEventRecorder, never()).record(any());
     }
 

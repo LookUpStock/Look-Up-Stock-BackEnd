@@ -8,7 +8,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import com.lookupstock.marktdaten.exception.UpstreamUnavailableException;
 
-/** Fehler im selben Format wie beim core-service: {"error":{"code":…,"message":…}} (NF-15). */
 @RestControllerAdvice
 public class ErrorHandler {
 
@@ -24,7 +23,6 @@ public class ErrorHandler {
 
     @ExceptionHandler(UpstreamUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleUpstream(UpstreamUnavailableException e) {
-        // Ursache wurde bereits im TwelveDataProvider protokolliert
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(ErrorResponse.of("UPSTREAM_UNAVAILABLE", e.getMessage()));
     }

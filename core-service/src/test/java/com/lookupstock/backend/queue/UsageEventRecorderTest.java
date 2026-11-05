@@ -16,10 +16,6 @@ import org.junit.jupiter.api.Test;
 
 import com.lookupstock.backend.model.UsageEventType;
 
-/**
- * Unit-Tests für UsageEventRecorder (BE #114): Ereignis wird eingestellt,
- * ein Ausfall der Queue lässt die Aktion nicht scheitern (ADR-07).
- */
 class UsageEventRecorderTest {
 
     private static final Instant NOW = Instant.parse("2026-10-31T10:15:00Z");
