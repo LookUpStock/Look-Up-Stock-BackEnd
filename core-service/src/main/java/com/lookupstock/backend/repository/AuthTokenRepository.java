@@ -9,7 +9,7 @@ import com.lookupstock.backend.model.AuthToken;
 
 public interface AuthTokenRepository extends JpaRepository<AuthToken, Long> {
 
-    // lädt den Nutzer gleich mit, sonst LazyInitializationException außerhalb der Transaktion
+    // Fetch the user eagerly to avoid LazyInitializationException outside the transaction.
     @EntityGraph(attributePaths = "user")
     Optional<AuthToken> findByToken(String token);
 

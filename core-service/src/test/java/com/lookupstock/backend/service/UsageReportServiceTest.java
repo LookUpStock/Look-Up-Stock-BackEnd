@@ -31,16 +31,10 @@ import com.lookupstock.backend.model.UserRole;
 import com.lookupstock.backend.repository.UsageEventRepository;
 import com.lookupstock.backend.repository.UserRepository;
 
-/**
- * Unit-Tests für UsageReportService (BE #111, US-11): Rollenprüfung (E40), Monatswahl und
- * Monatsgrenzen nach deutscher Zeit (E38), neun Kennzahlen in fester Reihenfolge (E39).
- */
 class UsageReportServiceTest {
 
-    // 15.11.2026, 11:00 Uhr in Berlin: laufender Monat ist November
     private static final Instant NOW = Instant.parse("2026-11-15T10:00:00Z");
 
-    // Erstes Ereignis am 31.10.2026 (Deploy), Beginn der Erfassung
     private static final Instant FIRST_EVENT = Instant.parse("2026-10-31T09:00:00Z");
 
     private UsageEventRepository usageEventRepository;
@@ -49,7 +43,6 @@ class UsageReportServiceTest {
     private User manager;
     private User normalUser;
 
-    /** Ergebnis einer Gruppierung wie aus der Datenbank */
     private record Row(UsageEventType eventType, long total) implements UsageEventRepository.EventTypeCount {
         @Override public UsageEventType getEventType() { return eventType; }
         @Override public long getTotal() { return total; }
@@ -62,15 +55,12 @@ class UsageReportServiceTest {
         service = new UsageReportService(usageEventRepository, userRepository, Clock.fixed(NOW, ZoneOffset.UTC));
 
         manager = new User("chefin@example.com", "hash");
-        // Die Rolle wird nur in der Datenbank vergeben, daher hier direkt setzen
         ReflectionTestUtils.setField(manager, "role", UserRole.MANAGER);
         normalUser = new User("anna@example.com", "hash");
 
         when(usageEventRepository.findEarliestOccurredAt()).thenReturn(Optional.of(FIRST_EVENT));
         when(usageEventRepository.countByTypeBetween(any(), any())).thenReturn(List.of());
     }
-
-    // ---------- Berechtigung (E40) ----------
 
     @Test
     void ohneRolleGeschaeftsfuehrungLiefert403UndLiestNichts() {
@@ -79,8 +69,6 @@ class UsageReportServiceTest {
                 .hasMessage(Messages.FORBIDDEN);
         verifyNoInteractions(usageEventRepository, userRepository);
     }
-
-    // ---------- Monat (E38) ----------
 
     @Test
     void ohneMonatWirdDerLaufendeMonatVorlaeufigAusgewertet() {
@@ -91,14 +79,13 @@ class UsageReportServiceTest {
         assertThat(report.month()).isEqualTo(YearMonth.of(2026, 11));
         assertThat(report.preliminary()).isTrue();
         assertThat(report.trackingSince()).isEqualTo(LocalDate.of(2026, 10, 31));
-        // Im laufenden Monat: Stand jetzt
         assertThat(report.values().get(UsageMetric.TOTAL_ACCOUNTS)).isEqualTo(38L);
     }
 
     @Test
     void abgeschlossenerMonatNutztMonatsgrenzenNachDeutscherZeit() {
-        Instant from = Instant.parse("2026-09-30T22:00:00Z"); // 01.10. 00:00 Sommerzeit (UTC+2)
-        Instant to = Instant.parse("2026-10-31T23:00:00Z");   // 01.11. 00:00 Winterzeit (UTC+1)
+        Instant from = Instant.parse("2026-09-30T22:00:00Z");
+        Instant to = Instant.parse("2026-10-31T23:00:00Z");
         when(usageEventRepository.countByTypeBetween(from, to)).thenReturn(List.of(
                 new Row(UsageEventType.LOGIN, 27),
                 new Row(UsageEventType.SIMULATION_RUN, 41)));
@@ -110,7 +97,6 @@ class UsageReportServiceTest {
         verify(usageEventRepository).countByTypeBetween(from, to);
         assertThat(report.values().get(UsageMetric.LOGINS)).isEqualTo(27L);
         assertThat(report.values().get(UsageMetric.SIMULATIONS_RUN)).isEqualTo(41L);
-        // Konten am Monatsende
         assertThat(report.values().get(UsageMetric.TOTAL_ACCOUNTS)).isEqualTo(30L);
     }
 

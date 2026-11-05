@@ -12,13 +12,7 @@ import com.lookupstock.marktdaten.service.PriceService;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Verbraucher für das Thema kursdaten.vorladen (ADR-07): Der core-service stellt beim Anlegen oder Ändern eines
- * Portfolios Symbol und MIC-Code der Anlagen ein; dieser Dienst lädt fehlende oder veraltete Monatswerte in seinen
- * Kurs-Cache. Die nächste Simulation findet die Kurse dann meist schon im Cache (NF-07).
- * Wenige Nachrichten je Durchlauf und ein längerer Abstand als beim Core, weil jede Anlage ohne frischen Cache
- * eine Anfrage an Twelve Data kostet (kostenloser Tarif: 8 Anfragen pro Minute).
- */
+// Few messages per run: every asset without a fresh cache costs a Twelve Data request (free plan: 8 per minute).
 @Component
 public class PricePreloadConsumer {
 
@@ -40,7 +34,7 @@ public class PricePreloadConsumer {
         this.objectMapper = objectMapper;
     }
 
-    /** Ein Durchlauf in einer Transaktion: Die Sperre aus lockNextBatch gilt bis zum Ende der Methode. */
+    // One run per transaction so the lock from lockNextBatch is held until the end.
     @Scheduled(fixedDelayString = "${app.queue.preload-interval-ms:15000}")
     @Transactional
     public void processBatch() {
@@ -60,12 +54,11 @@ public class PricePreloadConsumer {
                 if (instrument == null || instrument.symbol() == null || instrument.symbol().isBlank()) {
                     continue;
                 }
-                // Frischer Cache: kein Aufruf bei Twelve Data; sonst Abruf und Speichern im Cache
                 priceService.getPrices(instrument.symbol().trim(), instrument.micCode(), MONTHLY_INTERVAL, MONTHS_TO_LOAD);
             }
             queueRepository.delete(entry.id());
         } catch (RuntimeException e) {
-            // z. B. Twelve Data nicht erreichbar oder Kontingent erschöpft: später erneut versuchen
+            // For example Twelve Data unreachable or quota exhausted: retry later.
             queueRepository.registerFailure(entry.id(), e.getMessage(), MAX_ATTEMPTS);
             log.warn("kursdaten.vorladen: Nachricht {} nicht verarbeitet – {}", entry.id(), e.getMessage());
         }

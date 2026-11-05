@@ -21,9 +21,6 @@ import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.PortfolioService;
 import com.lookupstock.backend.service.SavedSimulationService;
 
-/**
- * Lesende GraphQL-Abfragen (BE #94). Übersetzt nur; die Fachlogik liegt in denselben Services wie bei REST (ADR-02).
- */
 @Controller
 public class QueryController {
 
@@ -40,7 +37,6 @@ public class QueryController {
         this.authService = authService;
     }
 
-    // Anlagensuche ohne Anmeldung; Prüfregeln und Cache wie bei GET /assets/search
     @QueryMapping
     public List<AssetResponse> searchAssets(@Argument String query, @Argument Integer limit) {
         return assetService.search(query, limit).stream().map(AssetResponse::from).toList();
@@ -72,14 +68,12 @@ public class QueryController {
         return SavedSimulationListResponse.Entry.from(savedSimulationService.findById(id, currentUser(token)));
     }
 
-    // Wird nur aufgerufen, wenn die Abfrage SavedSimulation.portfolio anfordert
     @SchemaMapping(typeName = "SavedSimulation", field = "portfolio")
     public PortfolioResponse savedSimulationPortfolio(SavedSimulationListResponse.Entry simulation,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
         return PortfolioResponse.from(portfolioService.findById(simulation.portfolioId(), currentUser(token)));
     }
 
-    // Wird nur aufgerufen, wenn die Abfrage SavedSimulation.metrics anfordert; liest das gespeicherte Ergebnis
     @SchemaMapping(typeName = "SavedSimulation", field = "metrics")
     public Metrics savedSimulationMetrics(SavedSimulationListResponse.Entry simulation,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
@@ -87,7 +81,6 @@ public class QueryController {
         return savedSimulationService.readResult(saved).metrics();
     }
 
-    // Ohne Token oder mit ungültigem Token: UNAUTHORIZED mit „Bitte melde dich an.“ wie bei REST
     private User currentUser(String token) {
         if (token == null) {
             throw new UnauthorizedException(Messages.NOT_LOGGED_IN);

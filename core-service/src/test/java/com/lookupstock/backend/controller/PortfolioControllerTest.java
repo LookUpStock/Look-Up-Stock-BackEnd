@@ -63,7 +63,6 @@ class PortfolioControllerTest {
     void anlegenLiefert201() throws Exception {
         Portfolio p = new Portfolio("Mein Weltportfolio", OWNER);
         p.addPosition(new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR"), new BigDecimal("100"));
-        // @PrePersist läuft im Controller-Test nicht, daher Zeitstempel direkt setzen
         Instant zeit = Instant.parse("2026-09-30T10:12:00Z");
         ReflectionTestUtils.setField(p, "createdAt", zeit);
         ReflectionTestUtils.setField(p, "updatedAt", zeit);
@@ -118,7 +117,6 @@ class PortfolioControllerTest {
 
     @Test
     void eigenesPortfolioLiefert200() throws Exception {
-        // BE #109: GET /portfolios/{id} mit eigenem Portfolio liefert das Portfolio mit Positionen
         Portfolio p = new Portfolio("Mein Weltportfolio", OWNER);
         Asset urth = new Asset("URTH", null, "iShares MSCI World ETF", "NYSE", "USD", "ETF", "ARCX");
         ReflectionTestUtils.setField(urth, "id", 1L);
@@ -171,7 +169,6 @@ class PortfolioControllerTest {
 
     @Test
     void kaputtesJsonOhneAnmeldungLiefert401() throws Exception {
-        // 401 vor 400: @CurrentUser ist der erste Parameter und wird vor dem Body aufgelöst
         mockMvc.perform(post("/api/v1/portfolios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"X\",\"positions\":[{\"assetId\":1,\"weight\":\"abc\"}]}"))
@@ -189,8 +186,6 @@ class PortfolioControllerTest {
                 .andExpect(jsonPath("$.portfolios[0].name").value("Mein Weltportfolio"))
                 .andExpect(jsonPath("$.portfolios[0].positions[0].symbol").value("EUNL"));
     }
-
-    // ---------- US-06: ändern und löschen ----------
 
     @Test
     void aendernLiefert200() throws Exception {
@@ -220,7 +215,6 @@ class PortfolioControllerTest {
 
     @Test
     void aendernOhneTokenLiefert401() throws Exception {
-        // BE #90: PUT ohne Token wird vor jeder Änderung abgewiesen
         mockMvc.perform(put("/api/v1/portfolios/5").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Neu\",\"positions\":[{\"assetId\":1,\"weight\":100}]}"))
                 .andExpect(status().isUnauthorized())

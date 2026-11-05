@@ -12,9 +12,6 @@ import com.lookupstock.backend.repository.QueueMessageRepository;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * MessagePublisher auf Basis der Queue-Tabelle in PostgreSQL (ADR-07, Variante B2).
- */
 @Component
 public class DatabaseMessagePublisher implements MessagePublisher {
 
@@ -30,10 +27,7 @@ public class DatabaseMessagePublisher implements MessagePublisher {
         this.clock = clock;
     }
 
-    /**
-     * Eigene Transaktion (REQUIRES_NEW): Ein Fehler beim Einstellen darf die Transaktion
-     * der eigentlichen Aktion nicht als fehlgeschlagen markieren.
-     */
+    // Own transaction: a failure here must not mark the caller's transaction as rollback-only.
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publish(String topic, Object payload) {

@@ -14,8 +14,6 @@ import com.lookupstock.backend.exception.ValidationException.FieldError;
 
 class SimulationParametersTest {
 
-    // ---------- Normalfall und Standardwerte ----------
-
     @Test
     void validate_validInput_doesNotThrow() {
         SimulationParameters parameters = params(10_000.0, 200.0, 20, 10_000);
@@ -29,8 +27,6 @@ class SimulationParametersTest {
 
         assertThat(parameters.paths()).isEqualTo(10_000);
     }
-
-    // ---------- Anlagehorizont (AT-04-10) ----------
 
     @ParameterizedTest
     @ValueSource(ints = {1, 40})
@@ -60,12 +56,10 @@ class SimulationParametersTest {
         assertThat(e.getErrors()).extracting(FieldError::message).containsExactly("Das Feld fehlt.");
     }
 
-    // ---------- Startkapital und Sparrate (AT-04-11) ----------
-
     @ParameterizedTest
     @CsvSource({
-            "0, 200",      // nur Startkapital 0
-            "10000, 0"     // nur Sparrate 0
+            "0, 200",
+            "10000, 0"
     })
     void validate_onlyOneAmountZero_isAccepted_AT0411(double startCapital, double contribution) {
         SimulationParameters parameters = params(startCapital, contribution, 20, 10_000);
@@ -100,8 +94,6 @@ class SimulationParametersTest {
         assertThat(e.getErrors()).extracting(FieldError::message).containsExactly("Das Feld fehlt.");
     }
 
-    // ---------- Pfadanzahl (AT-04-12) ----------
-
     @ParameterizedTest
     @ValueSource(ints = {1_000, 50_000})
     void validate_pathsAtBoundary_isAccepted_AT0412(int paths) {
@@ -120,19 +112,14 @@ class SimulationParametersTest {
         assertThat(e.getErrors()).extracting(FieldError::field).containsExactly("paths");
     }
 
-    // ---------- Mehrere Fehler gleichzeitig ----------
-
     @Test
     void validate_multipleErrors_collectsAllFields() {
         ValidationException e = validationErrorOf(params(-1.0, 200.0, 41, 999));
 
-        // Alle drei Felder werden gemeldet, die Hauptmeldung kommt vom ersten Fehler
         assertThat(e.getErrors()).extracting(FieldError::field)
                 .containsExactly("startCapital", "horizonYears", "paths");
         assertThat(e.getMessage()).isEqualTo("Bitte alle Pflichtfelder mit Werten ab 0 ausfüllen.");
     }
-
-    // ---------- Hilfsmethoden der Klasse ----------
 
     @Test
     void horizonMonths_convertsYearsToMonths() {
@@ -150,22 +137,16 @@ class SimulationParametersTest {
         assertThat(original.seed()).isNull();
     }
 
-    // ---------- Hilfsmethoden des Tests ----------
-
-    // Baut Parameter mit festem Seed 42
     private static SimulationParameters params(Double startCapital, Double contribution,
                                                Integer horizonYears, Integer paths) {
         return new SimulationParameters(startCapital, contribution, horizonYears, paths, 42L);
     }
 
-    // Führt validate() aus und liefert die erwartete ValidationException
     private static ValidationException validationErrorOf(SimulationParameters parameters) {
         Throwable thrown = catchThrowable(parameters::validate);
         assertThat(thrown).isInstanceOf(ValidationException.class);
         return (ValidationException) thrown;
     }
-
-        // ---------- Zielbetrag (US-05) ----------
 
     @Test
     void constructor_withoutTarget_targetAmountIsNull() {

@@ -57,7 +57,6 @@ class AuthServiceTest {
         when(passwordEncoder.encode("geheim123")).thenReturn("HASH");
     }
 
-    // ---------- register ----------
     @Test
     void register_speichertNurDenHash_NF03() {
         service.register("anna@example.com", "geheim123");
@@ -65,7 +64,6 @@ class AuthServiceTest {
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getPasswordHash()).isEqualTo("HASH").isNotEqualTo("geheim123");
-        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
         verify(usageEventRecorder).record(UsageEventType.REGISTRATION);
     }
 
@@ -81,7 +79,6 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.register("anna@example.com", "geheim123"))
                 .isInstanceOf(ConflictException.class);
         verify(userRepository, never()).saveAndFlush(any());
-        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
         verify(usageEventRecorder, never()).record(any());
     }
 
@@ -111,7 +108,6 @@ class AuthServiceTest {
                 .isInstanceOf(ValidationException.class);
     }
 
-    // ---------- login ----------
     @Test
     void login_erfolgreich_liefertTokenMit24StundenGueltigkeit() {
         User user = new User("anna@example.com", "HASH");
@@ -123,10 +119,8 @@ class AuthServiceTest {
         assertThat(response.token()).hasSize(43);
         assertThat(AuthService.TOKEN_VALIDITY).isEqualTo(Duration.ofHours(24));
         assertThat(response.expiresAt()).isEqualTo(NOW.plus(AuthService.TOKEN_VALIDITY));
-                // Neue Konten haben die Rolle USER (E40)
         assertThat(response.role()).isEqualTo(UserRole.USER);
         verify(authTokenRepository).save(any(AuthToken.class));
-        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
         verify(usageEventRecorder).record(UsageEventType.LOGIN);
     }
 
@@ -144,11 +138,9 @@ class AuthServiceTest {
         assertThat(unbekannt).isInstanceOf(UnauthorizedException.class);
         assertThat(falschesPasswort.getMessage()).isEqualTo(unbekannt.getMessage());
         verify(authTokenRepository, never()).save(any());
-        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
         verify(usageEventRecorder, never()).record(any());
     }
 
-    // ---------- authenticate ----------
     @Test
     void authenticate_gueltigesToken_liefertNutzer() {
         User user = new User("anna@example.com", "HASH");
@@ -181,7 +173,6 @@ class AuthServiceTest {
                 .isInstanceOf(UnauthorizedException.class);
     }
 
-    // ---------- logout ----------
     @Test
     void logout_loeschtToken() {
         service.logout("abc");

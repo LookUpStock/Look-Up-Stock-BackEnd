@@ -101,15 +101,7 @@ public class TwelveDataProvider implements MarketDataProvider {
                 .toList();
     }
 
-    // ---------- Fehlerbehandlung ----------
-    // Für den Nutzer bleibt die Meldung laut API-Design immer „Kursdaten sind gerade nicht verfügbar.“ (503 über den core-service).
-    // Die Ursache wird unterschieden und protokolliert, damit sie im Betrieb (z. B. Heroku-Log) erkennbar ist.
-
-    /**
-     * Fehler im JSON-Body (HTTP 200 mit status "error").
-     * Unbekanntes Symbol oder eine im Tarif nicht enthaltene Börse ergeben eine leere Liste:
-     * Für diese Anlage gibt es dauerhaft keine Kurse, Twelve Data ist aber erreichbar (kein 503, Docs #80).
-     */
+    // Unknown symbol or exchange not in the plan: empty list, Twelve Data itself is reachable (no 503).
     private <T> List<T> handleError(String operation, Integer code, String message) {
         TwelveDataError error = TwelveDataError.fromCode(code);
         if (error == TwelveDataError.NOT_FOUND || error == TwelveDataError.PLAN_RESTRICTED) {
@@ -119,7 +111,6 @@ public class TwelveDataProvider implements MarketDataProvider {
         throw unavailable(operation, code, message);
     }
 
-    /** Fehler als HTTP-Status (4xx/5xx). */
     private <T> List<T> handleHttpError(String operation, RestClientResponseException e) {
         return handleError(operation, e.getStatusCode().value(), e.getStatusText());
     }

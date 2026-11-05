@@ -17,15 +17,9 @@ import org.springframework.web.client.RestClientResponseException;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 
-/**
- * Kursdaten und Suche über den marktdaten-service (ADR-07, BE #106). Ersetzt den TwelveDataProvider im core-service.
- * Synchrone Ausnahme laut ADR-07: Die Simulation braucht die Kurse, bevor sie rechnen kann (NF-01).
- * Ist der marktdaten-service nicht erreichbar oder antwortet mit einem Fehler, folgt wie bisher 503 (NF-07).
- */
 @Component
 public class MarktdatenClient implements MarketDataProvider {
 
-    /** Header mit dem gemeinsamen Schlüssel; muss zum InternalApiKeyFilter des marktdaten-service passen. */
     public static final String API_KEY_HEADER = "X-Internal-Api-Key";
 
     private static final Logger log = LoggerFactory.getLogger(MarktdatenClient.class);
@@ -42,7 +36,6 @@ public class MarktdatenClient implements MarketDataProvider {
         this(RestClient.builder().requestFactory(timeouts()), baseUrl, internalApiKey);
     }
 
-    /** Für Tests: der Builder kann an einen MockRestServiceServer gebunden sein. */
     MarktdatenClient(RestClient.Builder builder, String baseUrl, String internalApiKey) {
         this.restClient = builder
                 .baseUrl(baseUrl)
@@ -50,7 +43,7 @@ public class MarktdatenClient implements MarketDataProvider {
                 .build();
     }
 
-    // Timeout 5 s laut ADR-07; der marktdaten-service wartet selbst höchstens 3 s auf Twelve Data
+    // 5 s timeout; the market data service itself waits at most 3 s for Twelve Data.
     private static SimpleClientHttpRequestFactory timeouts() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(2));
@@ -97,7 +90,6 @@ public class MarktdatenClient implements MarketDataProvider {
         }
     }
 
-    // Antwort mit Fehlerstatus: 503 heißt Twelve Data nicht erreichbar, 401 heißt INTERNAL_API_KEY passt nicht
     private UpstreamUnavailableException failed(String operation, RestClientResponseException e) {
         int status = e.getStatusCode().value();
         if (status == 401) {

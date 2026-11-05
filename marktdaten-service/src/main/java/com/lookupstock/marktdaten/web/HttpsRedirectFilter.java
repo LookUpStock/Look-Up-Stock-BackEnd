@@ -14,11 +14,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-/**
- * Leitet Aufrufe über http mit 308 auf dieselbe Adresse mit https um (NF-05, BE #135).
- * Heroku beendet TLS am Router und meldet das ursprüngliche Protokoll im Header X-Forwarded-Proto.
- * Ohne diesen Header (lokal, Tests) wird nichts umgeleitet.
- */
+// Heroku terminates TLS at the router and reports the original protocol in X-Forwarded-Proto; without it (local, tests) nothing is redirected.
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class HttpsRedirectFilter extends OncePerRequestFilter {
@@ -38,12 +34,12 @@ public class HttpsRedirectFilter extends OncePerRequestFilter {
         }
         String query = request.getQueryString();
         String target = "https://" + host + request.getRequestURI() + (query == null ? "" : "?" + query);
-        // 308 statt 301: Methode und Body bleiben bei der Umleitung erhalten
+        // 308 instead of 301 keeps the method and body.
         response.setStatus(HttpStatus.PERMANENT_REDIRECT.value());
         response.setHeader(HttpHeaders.LOCATION, target);
     }
 
-    // Der Header kann mehrere Werte enthalten ("http, https"); maßgeblich ist der erste
+    // The header may contain several values ("http, https"); the first one counts.
     private static String firstValue(String header) {
         if (header == null) {
             return null;

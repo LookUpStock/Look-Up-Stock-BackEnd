@@ -27,14 +27,9 @@ import com.lookupstock.backend.model.WeightedAsset;
 import com.lookupstock.backend.queue.UsageEventRecorder;
 import com.lookupstock.backend.repository.AssetRepository;
 
-/**
- * GRASP Controller für den Use-Case „Anlagen und Portfolios vergleichen“ (US-07, ADR-05, BE #69).
- * Koordiniert den Ablauf; die Simulation eines Eintrags liegt in SimulationService.run.
- */
 @Service
 public class ComparisonService {
 
-    /** US-07: genau zwei Einträge; US-10 erweitert auf bis zu vier. */
     public static final int ITEM_COUNT = 2;
 
     private final PortfolioService portfolioService;
@@ -58,15 +53,9 @@ public class ComparisonService {
         this.usageEventRecorder = usageEventRecorder;
     }
 
-    /**
-     * Vergleicht zwei Einträge unter gleichen Annahmen.
-     * Fehler: 400 (Einträge oder Parameter), 404 (fremdes oder unbekanntes Portfolio, unbekannte Anlage; NF-04),
-     * 422 (zu wenig Kursdaten, alle betroffenen Anlagen; E6), 503 (Kursdaten nicht abrufbar; NF-07).
-     */
-    // readOnly-Transaktion, damit die Positionen der Portfolios nachgeladen werden können (wie SimulationService)
+    // Read-only transaction so the lazy portfolio positions can be loaded.
     @Transactional(readOnly = true)
     public ComparisonResult compare(List<ComparisonEntry> entries, SimulationParameters parameters, User user) {
-        // 1. Eingaben prüfen (400)
         validateEntries(entries);
         if (parameters == null) {
             throw new ValidationException(Messages.PARAMETERS_REQUIRED,
@@ -74,15 +63,12 @@ public class ComparisonService {
         }
         parameters.validate();
 
-        // 2. Einträge auflösen: eigenes Portfolio oder einzelne Anlage mit 100 % (404)
         List<ResolvedEntry> resolved = entries.stream().map(entry -> resolve(entry, user)).toList();
 
-        // 3. Ein Seed für alle Einträge (NF-08)
         SimulationParameters effective = simulationService.ensureSeed(parameters);
 
         long start = System.nanoTime();
 
-        // 4. Einmal schätzen, mit allen Anlagen aller Einträge ohne Doppelte (gemeinsamer Schätzzeitraum, E17)
         Map<Long, Asset> distinctAssets = new LinkedHashMap<>();
         for (ResolvedEntry entry : resolved) {
             for (WeightedAsset weighted : entry.weights()) {
@@ -91,12 +77,10 @@ public class ComparisonService {
         }
         EstimationResult estimation = parameterEstimator.estimate(List.copyOf(distinctAssets.values()));
 
-        // 5. Je Eintrag simulieren, alle mit denselben Zufallszahlen
         List<SimulationRun> runs = resolved.stream()
                 .map(entry -> simulationService.run(entry.weights(), estimation, effective))
                 .toList();
 
-        // 6. Ergebnis zusammenstellen (Creator)
         List<ComparisonResult.Item> items = new ArrayList<>();
         for (int i = 0; i < resolved.size(); i++) {
             ResolvedEntry entry = resolved.get(i);
@@ -113,7 +97,6 @@ public class ComparisonService {
         }
 
         long runtimeMs = (System.nanoTime() - start) / 1_000_000;
-        // Nur erfolgreiche Vergleiche zählen (E37)
         usageEventRecorder.record(UsageEventType.COMPARISON_RUN);
         return new ComparisonResult(effective, estimation, items, pairwise, runtimeMs, clock.instant());
     }
@@ -127,7 +110,6 @@ public class ComparisonService {
         List<FieldError> errors = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
             ComparisonEntry entry = entries.get(i);
-            // genau eine der beiden IDs muss gesetzt sein
             if (entry == null || (entry.portfolioId() == null) == (entry.assetId() == null)) {
                 errors.add(new FieldError("items[" + i + "]", Messages.COMPARISON_ITEM_INVALID));
             }
@@ -139,14 +121,12 @@ public class ComparisonService {
 
     private ResolvedEntry resolve(ComparisonEntry entry, User user) {
         if (entry.portfolioId() != null) {
-            // fremdes oder unbekanntes Portfolio: 404 (NF-04)
             Portfolio portfolio = portfolioService.findById(entry.portfolioId(), user);
             return new ResolvedEntry(labelOrDefault(entry.label(), portfolio.getName()),
                     portfolio.getId(), null, portfolio.getWeights());
         }
         Asset asset = assetRepository.findById(entry.assetId())
                 .orElseThrow(() -> new NotFoundException(Messages.COMPARISON_ASSET_NOT_FOUND));
-        // einzelne Anlage = Portfolio mit 100 % in dieser Anlage
         return new ResolvedEntry(labelOrDefault(entry.label(), asset.getName()),
                 null, asset.getId(), List.of(new WeightedAsset(asset, BigDecimal.ONE)));
     }

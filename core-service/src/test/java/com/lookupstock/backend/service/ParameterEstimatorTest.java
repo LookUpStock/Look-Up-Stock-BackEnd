@@ -21,7 +21,6 @@ import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.EstimationResult;
 
-/** Schätzung von Rendite und Volatilität sowie Regeln E6/E8 (mind. 36 Monatswerte). */
 class ParameterEstimatorTest {
 
     private PriceHistoryService priceHistoryService;
@@ -39,7 +38,6 @@ class ParameterEstimatorTest {
         return a;
     }
 
-    /** count Monatswerte ab start, jeden Monat um factor gewachsen. */
     private static List<PricePoint> growth(LocalDate start, int count, double factor) {
         List<PricePoint> prices = new ArrayList<>();
         double price = 100.0;
@@ -67,7 +65,6 @@ class ParameterEstimatorTest {
     @Test
     void volatilitaetAusAbwechselndenRenditen() {
         Asset a = asset(1, "A");
-        // Renditen abwechselnd +10 % und -10 %
         List<PricePoint> prices = new ArrayList<>();
         double price = 100.0;
         for (int i = 0; i < 37; i++) {
@@ -78,7 +75,6 @@ class ParameterEstimatorTest {
 
         var estimate = estimator.estimate(List.of(a)).estimates().getFirst();
 
-        // 36 Renditen: Mittelwert 0, Stichproben-Standardabweichung 0,1 * sqrt(36/35)
         assertThat(estimate.annualReturn()).isCloseTo(0.0, within(1e-9));
         assertThat(estimate.annualVolatility()).isCloseTo(0.1 * Math.sqrt(36.0 / 35.0) * Math.sqrt(12), within(1e-9));
     }
@@ -118,7 +114,6 @@ class ParameterEstimatorTest {
 
     @Test
     void ohneKurseWirdNichtAlsZuKurzGemeldet() {
-        // Docs #80: Xetra im kostenlosen Tarif – Anbieter liefert gar keine Kurse
         Asset eunl = asset(1, "iShares Core MSCI World");
         when(priceHistoryService.getMonthlyPrices(eunl)).thenReturn(List.of());
 
@@ -163,7 +158,6 @@ class ParameterEstimatorTest {
     void zuKurzeUeberschneidungNenntAnlageMitSpaetestemBeginn() {
         Asset alt = asset(1, "Alt");
         Asset neu = asset(2, "Neu");
-        // Alt endet 2022-12, Neu beginnt 2021-01: nur 24 gemeinsame Monate
         when(priceHistoryService.getMonthlyPrices(alt)).thenReturn(growth(LocalDate.of(2016, 1, 1), 84, 1.01));
         when(priceHistoryService.getMonthlyPrices(neu)).thenReturn(growth(LocalDate.of(2021, 1, 1), 48, 1.01));
 

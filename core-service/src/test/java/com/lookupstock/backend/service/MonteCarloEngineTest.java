@@ -25,8 +25,6 @@ class MonteCarloEngineTest {
 
     private final MonteCarloEngine engine = new MonteCarloEngine();
 
-    // ---------- Aufbau des Ergebnisses ----------
-
     @Test
     void simulate_returnsOneRowPerPathAndOneColumnPerMonthPlusStart() {
         Asset asset = assetWithId(17L);
@@ -37,16 +35,12 @@ class MonteCarloEngineTest {
                 estimationFor(new Estimate(asset, 0.07, 0.15)),
                 parameters);
 
-        // 1.000 Pfade, 2 Jahre = 24 Monate + Monat 0 = 25 Spalten
         assertThat(paths).hasNumberOfRows(1_000);
         assertThat(paths[0]).hasSize(25);
-        // Jeder Pfad beginnt beim Startkapital
         for (double[] path : paths) {
             assertThat(path[0]).isEqualTo(10_000.0);
         }
     }
-
-    // ---------- Reproduzierbarkeit (NF-08) ----------
 
     @Test
     void simulate_sameSeed_returnsIdenticalPaths_NF08() {
@@ -75,8 +69,6 @@ class MonteCarloEngineTest {
         assertThat(seed42).isNotEqualTo(seed43);
     }
 
-    // ---------- Test-Orakel: Volatilität 0 ----------
-
     @Test
     void simulate_zeroVolatility_matchesExactFormula() {
         Asset asset = assetWithId(17L);
@@ -90,19 +82,15 @@ class MonteCarloEngineTest {
                 estimationFor(new Estimate(asset, annualReturn, 0.0)),
                 new SimulationParameters(startCapital, contribution, years, 1_000, 42L));
 
-        // Erwarteter Endwert: Zinseszins auf das Startkapital plus Sparplanformel
         double r = annualReturn / 12;
         int n = years * 12;
         double growth = Math.pow(1 + r, n);
         double expected = startCapital * growth + contribution * (growth - 1) / r;
 
-        // Ohne Zufall sind alle Pfade gleich und treffen den exakten Wert
         for (double[] path : paths) {
             assertThat(path[n]).isCloseTo(expected, within(1e-6));
         }
     }
-
-    // ---------- Monatliches Rebalancing ----------
 
     @Test
     void simulate_twoAssets_usesWeightedAverageReturn() {
@@ -111,7 +99,6 @@ class MonteCarloEngineTest {
         List<WeightedAsset> weights = List.of(
                 new WeightedAsset(world, new BigDecimal("0.70")),
                 new WeightedAsset(emerging, new BigDecimal("0.30")));
-        // 12 % pro Jahr = 1 % pro Monat; zweite Anlage 0 %; kein Zufall
         EstimationResult estimation = estimationFor(
                 new Estimate(world, 0.12, 0.0),
                 new Estimate(emerging, 0.0, 0.0));
@@ -119,11 +106,8 @@ class MonteCarloEngineTest {
         double[][] paths = engine.simulate(weights, estimation,
                 new SimulationParameters(10_000.0, 0.0, 1, 1_000, 42L));
 
-        // 0,7 × 1 % + 0,3 × 0 % = 0,7 % → 10.000 € werden nach einem Monat zu 10.070 €
         assertThat(paths[0][1]).isCloseTo(10_070.0, within(1e-9));
     }
-
-    // ---------- Fehlender Seed ----------
 
     @Test
     void simulate_withoutSeed_throwsException() {
@@ -136,12 +120,10 @@ class MonteCarloEngineTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    // ---------- Anlagehorizont an den Grenzen (AT-04-10) ----------
-
     @ParameterizedTest
     @CsvSource({
-            "1, 13",     // 1 Jahr = 12 Monate + Monat 0
-            "40, 481"    // 40 Jahre = 480 Monate + Monat 0
+            "1, 13",
+            "40, 481"
     })
     void simulate_horizonAtBoundary_returnsExpectedNumberOfMonths_AT0410(int horizonYears, int expectedColumns) {
         Asset asset = assetWithId(17L);
@@ -153,8 +135,6 @@ class MonteCarloEngineTest {
 
         assertThat(paths[0]).hasSize(expectedColumns);
     }
-
-    // ---------- Startkapital und Sparrate einzeln (AT-04-11) ----------
 
     @Test
     void simulate_onlyContribution_matchesSavingsPlanFormula() {
@@ -168,7 +148,6 @@ class MonteCarloEngineTest {
                 estimationFor(new Estimate(asset, 0.06, 0.0)),
                 new SimulationParameters(0.0, contribution, 5, 1_000, 42L));
 
-        // Ohne Startkapital zählt nur die Sparplanformel
         double expected = contribution * (Math.pow(1 + r, n) - 1) / r;
         assertThat(paths[0][0]).isEqualTo(0.0);
         assertThat(paths[0][n]).isCloseTo(expected, within(1e-6));
@@ -186,18 +165,14 @@ class MonteCarloEngineTest {
                 estimationFor(new Estimate(asset, 0.06, 0.0)),
                 new SimulationParameters(startCapital, 0.0, 5, 1_000, 42L));
 
-        // Ohne Sparrate zählt nur der Zinseszins auf das Startkapital
         double expected = startCapital * Math.pow(1 + r, n);
         assertThat(paths[0][n]).isCloseTo(expected, within(1e-6));
     }
-
-    // ---------- Wert bleibt nicht negativ ----------
 
     @Test
     void simulate_extremeVolatility_valuesNeverNegative() {
         Asset asset = assetWithId(17L);
 
-        // 500 % Volatilität pro Jahr: Monatsrenditen unter −100 % kommen häufig vor
         double[][] paths = engine.simulate(
                 List.of(new WeightedAsset(asset, BigDecimal.ONE)),
                 estimationFor(new Estimate(asset, 0.0, 5.0)),
@@ -209,8 +184,6 @@ class MonteCarloEngineTest {
             }
         }
     }
-
-    // ---------- Gleiche Zeitreihe bei gleichem Seed (AT-04-13, NF-08) ----------
 
     @Test
     void simulateAndPercentiles_sameSeed_returnIdenticalTimeline_AT0413() {
@@ -232,16 +205,12 @@ class MonteCarloEngineTest {
         assertThat(first).isEqualTo(second);
     }
 
-    // ---------- Hilfsmethoden ----------
-
-    // Erzeugt eine Testanlage mit gesetzter ID (sonst vergibt die Datenbank die ID)
     private static Asset assetWithId(long id) {
         Asset asset = new Asset("TEST" + id, null, "Testanlage " + id, "XETRA", "EUR", "ETF", null);
         ReflectionTestUtils.setField(asset, "id", id);
         return asset;
     }
 
-    // Verpackt Schätzungen in ein EstimationResult mit beliebigem Zeitraum
     private static EstimationResult estimationFor(Estimate... estimates) {
         return new EstimationResult(LocalDate.of(2016, 9, 1), LocalDate.of(2026, 8, 31), List.of(estimates));
     }

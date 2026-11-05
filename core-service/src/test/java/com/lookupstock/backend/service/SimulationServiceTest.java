@@ -40,7 +40,6 @@ import com.lookupstock.backend.model.UsageEventType;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.queue.UsageEventRecorder;
 
-/** BE #50: Ablauf laut Sequenzdiagramm US-04 und Fehlerfälle. */
 class SimulationServiceTest {
 
     private static final User OWNER = new User("anna@example.com", "hash");
@@ -103,13 +102,11 @@ class SimulationServiceTest {
         assertThat(result.timeline()).isEqualTo(timeline);
         assertThat(result.metrics()).isEqualTo(sampleMetrics);
         assertThat(result.runtimeMs()).isGreaterThanOrEqualTo(0);
-        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
         verify(usageEventRecorder).record(UsageEventType.SIMULATION_RUN);
     }
 
     @Test
     void simulateForSaveRechnetGleichZaehltAberKeineDurchgefuehrteSimulation() {
-        // B8: Beim Speichern hat die Oberfläche schon simuliert; nur SIMULATION_SAVED zählt (E37)
         SimulationResult result = service.simulateForSave(5L, params(42L), OWNER);
 
         assertThat(result.portfolioId()).isEqualTo(5L);
@@ -181,7 +178,6 @@ class SimulationServiceTest {
         assertThatThrownBy(() -> service.simulate(5L, params(42L), OWNER))
                 .isInstanceOf(UpstreamUnavailableException.class);
         verifyNoInteractions(engine);
-        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
         verify(usageEventRecorder, never()).record(any());
     }
 

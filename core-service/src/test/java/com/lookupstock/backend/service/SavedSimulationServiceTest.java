@@ -38,16 +38,10 @@ import com.lookupstock.backend.repository.SavedSimulationRepository;
 
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Unit-Tests für SavedSimulationService (BE #68, US-08). Repository und PortfolioService sind gemockt,
- * der JSON-Mapper ist echt, damit das Speichern und Wiederherstellen des Ergebnisses mitgeprüft wird.
- */
 class SavedSimulationServiceTest {
 
-    // Angemeldeter Nutzer, dem die Simulationen gehören
     private static final User OWNER = new User("anna@example.com", "hash");
 
-    // Zweiter Nutzer für NF-04: sieht die Simulationen von OWNER nicht
     private static final User OTHER = new User("ben@example.com", "hash");
 
     private SavedSimulationRepository repository;
@@ -68,11 +62,9 @@ class SavedSimulationServiceTest {
         ReflectionTestUtils.setField(portfolio, "id", 5L);
         when(portfolioService.findById(5L, OWNER)).thenReturn(portfolio);
 
-        // save() gibt die übergebene Simulation unverändert zurück, wie die echte Datenbank
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
-    // Ergebnis wie vom SimulationService; targetAmount optional
     private static SimulationResult result(Double targetAmount) {
         Asset asset = new Asset("EUNL", null, "MSCI World", "XETRA", "EUR", "ETF", "XETR");
         ReflectionTestUtils.setField(asset, "id", 1L);
@@ -84,8 +76,6 @@ class SavedSimulationServiceTest {
                 new Metrics(58_000, 10_250, 9_800, 10_700, 0, 0.3, targetAmount == null ? null : 0.6),
                 123);
     }
-
-    // ---------- save ----------
 
     @Test
     void save_storesNameParametersAndOwner() {
@@ -102,7 +92,6 @@ class SavedSimulationServiceTest {
         assertThat(saved.getTargetAmount()).isEqualByComparingTo(BigDecimal.valueOf(100_000));
         assertThat(saved.getRuntimeMs()).isEqualTo(123L);
         verify(repository).save(saved);
-        // Erfolgreiche Aktion wird als Nutzungsereignis erfasst (E37)
         verify(usageEventRecorder).record(UsageEventType.SIMULATION_SAVED);
     }
 
@@ -120,15 +109,11 @@ class SavedSimulationServiceTest {
         assertThatThrownBy(() -> service.save(result(null), "Fremd", OTHER))
                 .isInstanceOf(NotFoundException.class);
         verify(repository, never()).save(any());
-        // Abgelehnte oder fehlgeschlagene Aktion zählt nicht (E37)
         verify(usageEventRecorder, never()).record(any());
     }
 
-    // ---------- readResult ----------
-
     @Test
     void readResult_returnsExactlyTheStoredResult() {
-        // Kernanforderung US-08: Abruf ohne Neuberechnung liefert dasselbe Ergebnis wie beim Speichern
         SimulationResult original = result(100_000.0);
         ArgumentCaptor<SavedSimulation> captor = ArgumentCaptor.forClass(SavedSimulation.class);
 
@@ -140,8 +125,6 @@ class SavedSimulationServiceTest {
         assertThat(restored).isEqualTo(expected);
     }
 
-    // ---------- findAll ----------
-
     @Test
     void findAll_returnsSimulationsOfOwnerFromRepository() {
         SavedSimulation first = service.save(result(null), "A", OWNER);
@@ -150,8 +133,6 @@ class SavedSimulationServiceTest {
 
         assertThat(service.findAll(OWNER)).containsExactly(second, first);
     }
-
-    // ---------- findById ----------
 
     @Test
     void findById_existingId_returnsSimulation() {
@@ -163,15 +144,12 @@ class SavedSimulationServiceTest {
 
     @Test
     void findById_unknownOrForeignId_throwsNotFound() {
-        // Fremde ID wird wie eine unbekannte behandelt (NF-04)
         when(repository.findByIdAndOwner(12L, OTHER)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.findById(12L, OTHER))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage(Messages.SIMULATION_NOT_FOUND);
     }
-
-    // ---------- delete ----------
 
     @Test
     void delete_existingId_deletesSimulation() {

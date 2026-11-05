@@ -8,11 +8,6 @@ import com.lookupstock.backend.model.ComparisonResult;
 import com.lookupstock.backend.model.Metrics;
 import com.lookupstock.backend.model.TimelinePoint;
 
-/**
- * Antwort von POST /api/v1/comparisons laut API-Design.
- * id und name sind null, solange Vergleiche nicht gespeichert werden (US-08).
- * estimates zeigt den gemeinsamen Schätzzeitraum (ADR-05, Konsequenzen).
- */
 public record ComparisonResponse(
         Long id,
         String name,
@@ -23,7 +18,6 @@ public record ComparisonResponse(
         long runtimeMs,
         Instant createdAt) {
 
-    // je Eintrag erscheint nur portfolioId oder assetId, wie im API-Design
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ItemResponse(String label, Long portfolioId, Long assetId,
                                List<TimelinePoint> timeline, Metrics metrics) {

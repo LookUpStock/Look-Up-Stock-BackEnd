@@ -5,13 +5,9 @@ import java.util.List;
 
 import com.lookupstock.backend.model.UsageReport;
 
-/**
- * Antwort auf GET /reports/usage (US-11), Aufbau laut API-Design „Auswertungen“.
- */
 public record UsageReportResponse(String month, boolean preliminary, LocalDate trackingSince,
                                   List<MetricValue> metrics) {
 
-    /** Eine Kennzahl mit technischem Schlüssel, deutschem Anzeigetext und Wert */
     public record MetricValue(String key, String label, long value) {}
 
     public static UsageReportResponse from(UsageReport report) {

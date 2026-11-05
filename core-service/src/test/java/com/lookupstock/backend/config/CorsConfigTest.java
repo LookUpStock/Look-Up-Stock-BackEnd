@@ -26,10 +26,6 @@ import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.PortfolioService;
 
-/**
- * Tests für CorsConfig (BE #113, H7): CORS-Header auch bei Fehlerantworten.
- * Beispiel aus der Abnahme Sprint 4 (AT-ADR6-05): POST /portfolios/list liefert 405.
- */
 @WebMvcTest(PortfolioController.class)
 @Import({ GlobalExceptionHandler.class, CorsConfig.class })
 @TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:5500")

@@ -23,11 +23,6 @@ import com.lookupstock.backend.service.PortfolioService;
 import com.lookupstock.backend.service.SavedSimulationService;
 import com.lookupstock.backend.service.SimulationService;
 
-/**
- * Schreibende GraphQL-Operationen (BE #108). Übersetzt nur; Fachlogik, Prüfregeln und Meldungen
- * kommen aus denselben Services wie bei REST (ADR-02, ADR-05). Die Eingaben werden an dieselben
- * Request-Records gebunden wie die JSON-Bodys der REST-Endpunkte.
- */
 @Controller
 public class MutationController {
 
@@ -47,7 +42,6 @@ public class MutationController {
         this.authService = authService;
     }
 
-    // wie POST /portfolios
     @MutationMapping
     public PortfolioResponse createPortfolio(@Argument PortfolioRequest input,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
@@ -55,7 +49,6 @@ public class MutationController {
         return PortfolioResponse.from(portfolioService.create(input, owner));
     }
 
-    // wie PUT /portfolios/{id}
     @MutationMapping
     public PortfolioResponse updatePortfolio(@Argument Long id, @Argument PortfolioRequest input,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
@@ -63,7 +56,6 @@ public class MutationController {
         return PortfolioResponse.from(portfolioService.update(id, input, owner));
     }
 
-    // wie DELETE /portfolios/{id}; statt 204 ohne Body liefert GraphQL true
     @MutationMapping
     public boolean deletePortfolio(@Argument Long id,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
@@ -72,17 +64,16 @@ public class MutationController {
         return true;
     }
 
-    // wie POST /simulations, Ablauf wie im SimulationController
     @MutationMapping
     public SimulationResponse simulate(@Argument SimulationRequest input,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
         User user = currentUser(token);
-        // Name vor dem Rechnen prüfen, damit ein fehlender Name nicht erst nach der Berechnung auffällt
+        // Validate the name before computing so a missing name is reported immediately.
         String name = input.validatedName();
         SimulationParameters parameters = input.parameters() == null
                 ? null
                 : input.parameters().toSimulationParameters();
-        // Beim Speichern zählt nur SIMULATION_SAVED, die Simulation davor ist schon gezählt (B8, E37)
+        // When saving, only SIMULATION_SAVED is counted; the preceding simulation was already counted.
         SimulationResult result = input.shouldSave()
                 ? simulationService.simulateForSave(input.portfolioId(), parameters, user)
                 : simulationService.simulate(input.portfolioId(), parameters, user);
@@ -94,7 +85,6 @@ public class MutationController {
         return SimulationResponse.from(saved, savedSimulationService.readResult(saved));
     }
 
-    // wie DELETE /simulations/{id}
     @MutationMapping
     public boolean deleteSavedSimulation(@Argument Long id,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
@@ -103,7 +93,6 @@ public class MutationController {
         return true;
     }
 
-    // wie POST /comparisons
     @MutationMapping
     public ComparisonResponse compare(@Argument ComparisonRequest input,
             @ContextValue(name = AuthTokenInterceptor.TOKEN_KEY, required = false) String token) {
@@ -114,7 +103,6 @@ public class MutationController {
         return ComparisonResponse.from(comparisonService.compare(input.toEntries(), parameters, user));
     }
 
-    // Ohne Token oder mit ungültigem Token: UNAUTHORIZED mit „Bitte melde dich an.“ wie bei REST und im QueryController
     private User currentUser(String token) {
         if (token == null) {
             throw new UnauthorizedException(Messages.NOT_LOGGED_IN);

@@ -11,9 +11,6 @@ import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.ComparisonService;
 
-/**
- * POST /api/v1/comparisons (US-07). Übersetzt nur HTTP; die Koordination liegt im ComparisonService (ADR-05).
- */
 @RestController
 @RequestMapping("/api/v1/comparisons")
 public class ComparisonController {

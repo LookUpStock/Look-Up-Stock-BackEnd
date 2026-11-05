@@ -11,10 +11,6 @@ import com.lookupstock.backend.model.SimulationParameters;
 import com.lookupstock.backend.model.SimulationResult;
 import com.lookupstock.backend.model.TimelinePoint;
 
-/**
- * Antwort von POST /api/v1/simulations und POST /api/v1/simulations/{id}/details laut API-Design.
- * id, name und createdAt sind null, wenn die Simulation nicht gespeichert wurde (save: false).
- */
 public record SimulationResponse(
         Long id,
         String name,
@@ -29,7 +25,6 @@ public record SimulationResponse(
     public record ParametersResponse(double startCapital, double monthlyContribution,
                                      int horizonYears, int paths, long seed, Double targetAmount) {
 
-        // auch vom Vergleich genutzt (ComparisonResponse)
         public static ParametersResponse from(SimulationParameters p) {
             return new ParametersResponse(p.startCapital(), p.monthlyContribution(),
                     p.horizonYears(), p.paths(), p.seed(), p.targetAmount());
@@ -38,7 +33,6 @@ public record SimulationResponse(
 
     public record EstimatesResponse(LocalDate historyFrom, LocalDate historyTo, List<AssetEstimate> assets) {
 
-        // auch vom Vergleich genutzt (ComparisonResponse)
         public static EstimatesResponse from(EstimationResult estimation) {
             return new EstimatesResponse(
                     estimation.historyFrom(),
@@ -52,7 +46,6 @@ public record SimulationResponse(
     public record AssetEstimate(Long assetId, double annualReturn, double annualVolatility) {
     }
 
-    // Frisch gerechnete, nicht gespeicherte Simulation
     public static SimulationResponse from(SimulationResult result) {
         return new SimulationResponse(
                 null,
@@ -66,7 +59,6 @@ public record SimulationResponse(
                 null);
     }
 
-    // Gespeicherte Simulation: Parameter aus den Spalten, Ergebnis aus der JSON-Spalte, ohne Neuberechnung
     public static SimulationResponse from(SavedSimulation saved, StoredSimulationResult stored) {
         return new SimulationResponse(
                 saved.getId(),

@@ -22,10 +22,6 @@ import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 import com.lookupstock.backend.model.Asset;
 
-/**
- * Monatswerte für die Simulation: sortiert, gerundet, nur abgeschlossene Monate (E22); bei Ausfall 503.
- * Die Fälle zum 24-h-Cache stehen seit BE #106 im PriceServiceTest des marktdaten-service.
- */
 class PriceHistoryServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-10-11T12:00:00Z");
@@ -44,7 +40,6 @@ class PriceHistoryServiceTest {
 
     @Test
     void kurseWerdenMitSymbolUndMicAbgerufenUndAufsteigendSortiert() {
-        // Der Anbieter liefert die neuesten Werte zuerst
         when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(List.of(
                 new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101")),
                 new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100"))));
@@ -56,7 +51,6 @@ class PriceHistoryServiceTest {
 
     @Test
     void kurseWerdenAufSechsNachkommastellenGerundet() {
-        // NF-08 (Docs #81): gleiche Werte wie aus dem Kurs-Cache (NUMERIC(19,6))
         when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(List.of(
                 new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.12345650")),
                 new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.98765449"))));
@@ -67,7 +61,6 @@ class PriceHistoryServiceTest {
 
     @Test
     void laufenderMonatWirdAusgeschlossen() {
-        // B5 (E22): Abruf am 11.10.2026, der Anbieter liefert bereits einen Wert für Oktober
         when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(withOctober());
 
         assertThat(service.getMonthlyPrices(asset)).extracting(PricePoint::date)

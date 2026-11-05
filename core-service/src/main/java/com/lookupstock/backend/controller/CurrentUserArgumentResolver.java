@@ -13,14 +13,11 @@ import com.lookupstock.backend.exception.UnauthorizedException;
 import com.lookupstock.backend.model.User;
 import com.lookupstock.backend.service.AuthService;
 
-/**
- * Löst @CurrentUser User auf: liest das Token aus „Authorization: Bearer &lt;token&gt;“ und fragt den AuthService.
- */
 public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolver {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
-    // ObjectProvider statt AuthService: Controller-Tests ohne AuthService-Mock (z. B. Assets) starten sonst nicht
+    // ObjectProvider so controller tests without an AuthService mock can start.
     private final ObjectProvider<AuthService> authService;
 
     public CurrentUserArgumentResolver(ObjectProvider<AuthService> authService) {
@@ -47,7 +44,6 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
         return user;
     }
 
-    /** Token aus dem Authorization-Header; null bei fehlendem Header, anderem Schema oder leerem Token. */
     public static String extractToken(String header) {
         if (header == null || !header.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
             return null;

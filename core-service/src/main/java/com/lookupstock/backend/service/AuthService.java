@@ -34,7 +34,7 @@ public class AuthService {
 
     static final Duration TOKEN_VALIDITY = Duration.ofHours(24);
     static final int MIN_PASSWORD_LENGTH = 8;
-    static final int MAX_PASSWORD_BYTES = 72;                   // BCrypt-Grenze
+    static final int MAX_PASSWORD_BYTES = 72; // BCrypt limit
     static final int MAX_EMAIL_LENGTH = 255;
 
     private static final Pattern EMAIL_PATTERN =
@@ -74,14 +74,12 @@ public class AuthService {
         }
         User user;
         try {
-            // saveAndFlush, damit ein Verstoß gegen UNIQUE(email) hier auffällt
+            // saveAndFlush so a UNIQUE(email) violation from a concurrent registration surfaces here.
             user = userRepository.saveAndFlush(
                     new User(normalized, passwordEncoder.encode(password)));
         } catch (DataIntegrityViolationException e) {
-            // zwei gleichzeitige Registrierungen mit derselben E-Mail
             throw new ConflictException(Messages.EMAIL_TAKEN);
         }
-        // Nur erfolgreiche Registrierungen zählen (E37)
         usageEventRecorder.record(UsageEventType.REGISTRATION);
         return user;
     }
@@ -98,14 +96,12 @@ public class AuthService {
         Instant expiresAt = clock.instant().truncatedTo(ChronoUnit.SECONDS).plus(TOKEN_VALIDITY);
         String token = generateToken();
         authTokenRepository.save(new AuthToken(token, user, expiresAt));
-        // Nur erfolgreiche Anmeldungen zählen (E37)
         usageEventRecorder.record(UsageEventType.LOGIN);
         return new LoginResponse(token, expiresAt, user.getRole());
     }
 
     @Transactional
     public void logout(String token) {
-        // idempotent: unbekanntes oder abgelaufenes Token ist kein Fehler
         if (token != null && !token.isBlank()) {
             authTokenRepository.deleteByToken(token);
         }
@@ -146,6 +142,6 @@ public class AuthService {
     private String generateToken() {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes); // 43 Zeichen
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

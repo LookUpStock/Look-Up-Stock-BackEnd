@@ -5,13 +5,6 @@ import java.util.List;
 
 import com.lookupstock.backend.model.Asset;
 
-/**
- * Für mindestens eine Anlage reichen die Kursdaten nicht für die Simulation (422 INSUFFICIENT_DATA).
- * Unterschieden wird (Docs #80):
- * - keine Kursdaten: Der Anbieter liefert für die Anlage gar keine Kurse (z. B. Börse im Tarif nicht enthalten),
- * - zu kurze Historie: weniger als 36 Monatswerte (E8).
- * Alle betroffenen Anlagen werden genannt (E6).
- */
 public class InsufficientDataException extends RuntimeException {
 
     public record AffectedAsset(Long assetId, String name, String detail) {
@@ -19,7 +12,6 @@ public class InsufficientDataException extends RuntimeException {
 
     private final List<AffectedAsset> assets;
 
-    /** Nur Anlagen mit zu kurzer Historie. */
     public InsufficientDataException(List<Asset> tooShort) {
         this(List.of(), tooShort);
     }

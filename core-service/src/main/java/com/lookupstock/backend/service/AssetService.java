@@ -44,13 +44,11 @@ public class AssetService {
         if (!errors.isEmpty()) {
             throw new ValidationException(errors.get(0).message(), errors);
         }
-        // Der Such-Cache (24 h, NF-02) liegt seit BE #106 im marktdaten-service (ADR-07)
         String trimmedQuery = query.trim();
         List<Asset> results = marketDataProvider.search(trimmedQuery).stream()
                 .limit(max)
                 .map(this::findOrCreate)
                 .toList();
-        // Gültige Suche zählt auch ohne Treffer oder aus dem Cache, nicht bei 400 oder 503 (E37)
         usageEventRecorder.record(UsageEventType.ASSET_SEARCH);
         return results;
     }

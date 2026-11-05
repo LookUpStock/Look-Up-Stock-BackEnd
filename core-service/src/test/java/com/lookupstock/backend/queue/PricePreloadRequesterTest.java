@@ -21,7 +21,6 @@ import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.User;
 
-/** ADR-07: Thema kursdaten.vorladen mit Symbol und MIC-Code, ohne IDs des Core. */
 class PricePreloadRequesterTest {
 
     private static final User OWNER = new User("anna@example.com", "hash");

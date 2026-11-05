@@ -17,11 +17,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-/**
- * Lässt Anfragen an /internal/** nur mit dem gemeinsamen Schlüssel des core-service durch (ADR-07).
- * Der Schlüssel steht nur in den Heroku-Konfigurationsvariablen (INTERNAL_API_KEY) und wird nie protokolliert.
- * Ist kein Schlüssel konfiguriert, wird jede Anfrage abgewiesen, statt den Dienst offen zu lassen.
- */
+// Without a configured key every request is rejected instead of leaving the service open.
 @Component
 public class InternalApiKeyFilter extends OncePerRequestFilter {
 
@@ -42,7 +38,7 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        // /actuator/health bleibt für Heroku und Monitoring ohne Schlüssel erreichbar
+        // /actuator/health stays reachable without the key for Heroku and monitoring.
         return !request.getRequestURI().startsWith("/internal/");
     }
 
@@ -60,7 +56,7 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    // Vergleich in konstanter Zeit, damit die Antwortzeit nichts über den Schlüssel verrät
+    // Constant-time comparison so the response time reveals nothing about the key.
     private boolean isValid(String givenKey) {
         if (expectedKey.length == 0 || givenKey == null) {
             return false;

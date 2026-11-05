@@ -28,7 +28,6 @@ import org.springframework.web.client.RestClient;
 import com.lookupstock.backend.exception.Messages;
 import com.lookupstock.backend.exception.UpstreamUnavailableException;
 
-/** BE #106: Aufrufe an den marktdaten-service mit internem Schlüssel; jeder Fehler wird 503 (NF-07). */
 class MarktdatenClientTest {
 
     private static final String BASE_URL = "http://marktdaten.test";
@@ -112,7 +111,6 @@ class MarktdatenClientTest {
 
     @Test
     void unreachableServiceBecomesUpstreamUnavailable() {
-        // z. B. Timeout oder marktdaten-service nicht gestartet
         server.expect(requestTo(startsWith(BASE_URL + "/internal/search")))
                 .andRespond(request -> {
                     throw new IOException("Connection refused");

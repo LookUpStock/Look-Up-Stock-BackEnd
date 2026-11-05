@@ -43,7 +43,6 @@ public class Position {
         return weight;
     }
 
-    // US-06: Gewichtung einer bestehenden Position ändern (nur über Portfolio.updateFrom)
     void setWeight(BigDecimal weight) {
         this.weight = weight;
     }

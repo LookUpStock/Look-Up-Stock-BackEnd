@@ -94,7 +94,6 @@ public class Portfolio {
         Set<Long> assetIds = new HashSet<>();
         boolean duplicateReported = false;
         for (Position p : positions) {
-            // doppelte Anlagen nur einmal melden, der Text nennt kein Symbol
             if (!assetIds.add(p.getAsset().getId()) && !duplicateReported) {
                 errors.add(new ValidationException.FieldError("positions", Messages.DUPLICATE_ASSET));
                 duplicateReported = true;
@@ -122,11 +121,7 @@ public class Portfolio {
         }
     }
 
-    /**
-     * US-06: Übernimmt Name und Positionen aus einem bereits geprüften Entwurf.
-     * Positionen bleibender Anlagen werden geändert statt neu angelegt, weil
-     * (portfolio_id, asset_id) eindeutig ist und Hibernate neue Zeilen vor dem Löschen einfügt.
-     */
+    // Existing positions are updated, not re-created: (portfolio_id, asset_id) is unique and Hibernate inserts new rows before deleting old ones.
     public void updateFrom(Portfolio draft) {
         this.name = draft.name;
         Map<Long, BigDecimal> newWeights = new LinkedHashMap<>();
@@ -140,7 +135,7 @@ public class Portfolio {
                 .filter(p -> newWeights.containsKey(p.getAsset().getId()))
                 .forEach(p -> positions.add(new Position(this, p.getAsset(), p.getWeight())));
 
-        // @PreUpdate greift nicht, wenn sich nur Positionen ändern
+        // @PreUpdate does not fire when only positions change.
         updatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     }
 

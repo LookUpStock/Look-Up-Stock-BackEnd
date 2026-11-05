@@ -9,11 +9,6 @@ import org.springframework.stereotype.Component;
 
 import com.lookupstock.backend.model.UsageEventType;
 
-/**
- * Erfasst Nutzungsereignisse über die Queue (US-11, ADR-07).
- * Wird an den acht Stellen aus E37 nach einer erfolgreichen Aktion aufgerufen (BE #110).
- * Schlägt das Einstellen fehl, wird nur protokolliert; die Aktion bleibt erfolgreich.
- */
 @Component
 public class UsageEventRecorder {
 
@@ -29,7 +24,7 @@ public class UsageEventRecorder {
 
     public void record(UsageEventType type) {
         try {
-            // Zeitpunkt der Aktion, nicht der späteren Verarbeitung
+            // Time of the action, not of queue processing.
             messagePublisher.publish(QueueTopics.USAGE_EVENT, new UsageEventMessage(type, Instant.now(clock)));
         } catch (RuntimeException e) {
             log.warn("Nutzungsereignis {} konnte nicht in die Queue gestellt werden: {}", type, e.getMessage());

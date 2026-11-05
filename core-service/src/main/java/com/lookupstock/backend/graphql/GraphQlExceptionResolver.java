@@ -19,11 +19,6 @@ import graphql.GraphQLError;
 import graphql.GraphqlErrorBuilder;
 import graphql.schema.DataFetchingEnvironment;
 
-/**
- * Übersetzt die Exceptions der Services in GraphQL-Fehler.
- * Meldung, Code und Details entsprechen dem REST-Fehlerformat (GlobalExceptionHandler, NF-15).
- * Die Details stehen in extensions.details, z. B. [{"field":"name","message":"…"}].
- */
 @Component
 public class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapter {
 
@@ -42,7 +37,6 @@ public class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapte
             return error(env, ex, ErrorType.BAD_REQUEST, "VALIDATION_ERROR", details);
         }
         if (ex instanceof InsufficientDataException insufficient) {
-            // REST: 422; GraphQL kennt keinen eigenen Typ dafür, unterschieden wird über den Code
             List<Map<String, Object>> details = insufficient.getAssets().stream()
                     .map(a -> detail("assetId", a.assetId(), a.name(), a.detail()))
                     .toList();
@@ -54,7 +48,6 @@ public class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapte
         if (ex instanceof UpstreamUnavailableException) {
             return error(env, ex, ErrorType.INTERNAL_ERROR, "UPSTREAM_UNAVAILABLE", List.of());
         }
-        // Unbekannte Fehler übernimmt Spring mit einer allgemeinen Meldung ohne interne Details
         return null;
     }
 
@@ -72,7 +65,6 @@ public class GraphQlExceptionResolver extends DataFetcherExceptionResolverAdapte
                 .build();
     }
 
-    // Felder ohne Wert weglassen, wie @JsonInclude(NON_NULL) bei REST
     private static Map<String, Object> detail(String field, Long assetId, String name, String message) {
         Map<String, Object> detail = new LinkedHashMap<>();
         if (field != null) {

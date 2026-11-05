@@ -29,10 +29,6 @@ import com.lookupstock.marktdaten.exception.UpstreamUnavailableException;
 import com.lookupstock.marktdaten.model.PricePoint;
 import com.lookupstock.marktdaten.twelvedata.MarketDataProvider;
 
-/**
- * NF-07: Monatswerte jünger als 24 h kommen aus dem Cache, sonst neuer Abruf; bei Ausfall 503.
- * Die Fälle stammen aus dem früheren PriceHistoryServiceTest des core-service (BE #106).
- */
 class PriceServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-10-11T12:00:00Z");
@@ -77,7 +73,6 @@ class PriceServiceTest {
     @Test
     void withoutCachePricesAreFetchedSortedRoundedAndStored() {
         when(cache.load("URTH", "ARCX")).thenReturn(Optional.empty());
-        // Twelve Data liefert die neuesten Werte zuerst und mehr Nachkommastellen, als die Tabelle speichert
         when(provider.getHistoricalPrices("URTH", "ARCX", "1month", 120)).thenReturn(List.of(
                 new PricePoint(LocalDate.of(2026, 10, 1), new BigDecimal("102")),
                 new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.98765449")),
@@ -85,7 +80,6 @@ class PriceServiceTest {
 
         List<PricePoint> result = service.getPrices("URTH", "ARCX", "1month", 120);
 
-        // Rohdaten inklusive des laufenden Monats; abgeschlossene Monate wählt der core-service aus (E22)
         List<PricePoint> expected = List.of(
                 new PricePoint(LocalDate.of(2026, 8, 1), new BigDecimal("100.123457")),
                 new PricePoint(LocalDate.of(2026, 9, 1), new BigDecimal("101.987654")),
@@ -114,7 +108,6 @@ class PriceServiceTest {
 
     @Test
     void otherIntervalsAreNotCached() {
-        // Kennzahlen und Kursverlauf (GET /assets/{symbol}/stats, /prices) nutzen Tageswerte ohne Cache
         when(provider.getHistoricalPrices("URTH", null, "1day", 30)).thenReturn(CACHED);
 
         assertThat(service.getPrices("URTH", null, "1day", 30)).isEqualTo(CACHED);

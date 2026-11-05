@@ -18,13 +18,10 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
 
-    # ADR-07: Der bisherige Backend-Code liegt im Ordner core-service
     defaults:
       run:
         working-directory: core-service
 
-    # PostgreSQL-Datenbank fuer die Tests (Flyway migriert das Schema beim Start,
-    # danach prueft Hibernate es mit ddl-auto=validate)
     services:
       postgres:
         image: postgres:17
@@ -40,12 +37,10 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    # Werden von application.properties gelesen
     env:
       DB_URL: jdbc:postgresql://localhost:5432/lookupstock_test
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
-      # Dummy-Wert, damit der Spring-Kontext startet; Tests rufen die echte API nicht auf
       TWELVE_DATA_API_KEY: ci-dummy-key
 
     steps:
@@ -74,7 +69,6 @@ jobs:
           path: core-service/target/surefire-reports/
           if-no-files-found: ignore
 
-       # Abdeckung der Kernlogik in der Zusammenfassung des CI-Laufs anzeigen (NF-11)
       - name: Abdeckung der Kernlogik
         if: always()
         run: |
@@ -85,7 +79,6 @@ jobs:
           fi
           awk -F, -v core="ParameterEstimator MonteCarloEngine MetricsCalculator SimulationService ComparisonService Portfolio PortfolioService" '
             BEGIN { n = split(core, names, " "); for (i = 1; i <= n; i++) wanted[names[i]] = 1 }
-            # Spalte 3 ist die Klasse; innere Klassen (z. B. Portfolio.Builder) zählen zur äußeren
             NR > 1 { cls = $3; sub(/\..*/, "", cls); if (cls in wanted) { missed += $8; covered += $9 } }
             END {
               total = missed + covered

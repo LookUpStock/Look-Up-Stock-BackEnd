@@ -32,7 +32,6 @@ class PortfolioTest {
 
     @Test
     void validate_summeAusserhalbToleranz_nenntSummeImFestenFormat() {
-        // Erwartete Texte bewusst als Literale, damit ein geändertes Format auffällt
         assertSumDetail("Summe der Gewichtungen ist 99.98 %.", "49.98", "50");
         assertSumDetail("Summe der Gewichtungen ist 90 %.", "60.00", "30.00");
     }

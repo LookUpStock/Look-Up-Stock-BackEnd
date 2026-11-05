@@ -5,9 +5,6 @@ import java.util.List;
 
 import com.lookupstock.backend.model.SavedSimulation;
 
-/**
- * Antwort von POST /api/v1/simulations/list laut API-Design: nur Kopfdaten, ohne Ergebnis.
- */
 public record SavedSimulationListResponse(List<Entry> simulations) {
 
     public record Entry(Long id, String name, Long portfolioId, Instant createdAt) {

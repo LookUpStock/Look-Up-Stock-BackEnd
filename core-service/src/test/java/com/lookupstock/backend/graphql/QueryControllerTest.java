@@ -36,7 +36,6 @@ import com.lookupstock.backend.service.AuthService;
 import com.lookupstock.backend.service.PortfolioService;
 import com.lookupstock.backend.service.SavedSimulationService;
 
-/** BE #94: lesende GraphQL-Abfragen mit Anmeldung über den GraphQL-Kontext und Fehlern wie bei REST. */
 @GraphQlTest(QueryController.class)
 @Import(GraphQlExceptionResolver.class)
 class QueryControllerTest {
@@ -64,7 +63,6 @@ class QueryControllerTest {
         when(authService.authenticate(VALID_TOKEN)).thenReturn(OWNER);
     }
 
-    // Token so in den Kontext legen, wie es der AuthTokenInterceptor bei einer HTTP-Anfrage tut
     private GraphQlTester loggedIn() {
         return graphQlTester.mutate()
                 .configureExecutionInput((input, builder) -> builder
@@ -109,7 +107,6 @@ class QueryControllerTest {
 
     @Test
     void foreignPortfolioReturnsNotFound() {
-        // NF-04: fremde ID wie nicht vorhanden
         when(portfolioService.findById(99L, OWNER)).thenThrow(new NotFoundException(Messages.PORTFOLIO_NOT_FOUND));
 
         loggedIn().document("{ portfolio(id: 99) { id } }")
@@ -130,7 +127,6 @@ class QueryControllerTest {
                 .execute()
                 .path("savedSimulations[0].name").entity(String.class).isEqualTo("Sparplan 20 Jahre");
 
-        // Ohne Feld metrics wird das gespeicherte Ergebnis nicht gelesen
         verify(savedSimulationService, never()).readResult(any());
     }
 
@@ -148,7 +144,6 @@ class QueryControllerTest {
                 .path("savedSimulations[0].metrics.targetProbability").entity(Double.class).isEqualTo(0.85);
     }
 
-    // Anlage mit ID, wie sie aus der Datenbank käme
     private static Asset asset(String symbol, String name, Long id) {
         Asset asset = new Asset(symbol, null, name, "NASDAQ", "USD", "ETF", "XNAS");
         ReflectionTestUtils.setField(asset, "id", id);
@@ -159,7 +154,6 @@ class QueryControllerTest {
         Portfolio portfolio = new Portfolio("Mein Weltportfolio", OWNER);
         portfolio.addPosition(asset("URTH", "iShares MSCI World ETF", 1L), new BigDecimal("100"));
         ReflectionTestUtils.setField(portfolio, "id", 5L);
-        // @PrePersist läuft im Test nicht, daher Zeitstempel direkt setzen
         Instant time = Instant.parse("2026-10-18T10:00:00Z");
         ReflectionTestUtils.setField(portfolio, "createdAt", time);
         ReflectionTestUtils.setField(portfolio, "updatedAt", time);

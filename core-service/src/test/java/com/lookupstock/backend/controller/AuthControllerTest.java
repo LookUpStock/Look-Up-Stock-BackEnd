@@ -97,7 +97,6 @@ class AuthControllerTest {
 
     @Test
     void logout_ohneHeader_liefert204() throws Exception {
-        // idempotent: auch ohne Anmeldung kein Fehler
         mockMvc.perform(post("/api/v1/auth/logout"))
                 .andExpect(status().isNoContent());
 

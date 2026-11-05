@@ -10,12 +10,6 @@ import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Portfolio;
 import com.lookupstock.backend.model.Position;
 
-/**
- * Bittet den marktdaten-service über die Queue, die Kurse der Anlagen eines Portfolios vorzuladen (ADR-07).
- * Asynchrone Kommunikation zwischen den Diensten: Der Core wartet nicht auf die Verarbeitung.
- * Schlägt das Einstellen fehl, wird nur protokolliert; Anlegen und Ändern bleiben erfolgreich,
- * die Kurse werden dann wie bisher bei der ersten Simulation geladen.
- */
 @Component
 public class PricePreloadRequester {
 

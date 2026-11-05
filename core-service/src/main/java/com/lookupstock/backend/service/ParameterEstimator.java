@@ -15,13 +15,7 @@ import com.lookupstock.backend.model.Asset;
 import com.lookupstock.backend.model.Estimate;
 import com.lookupstock.backend.model.EstimationResult;
 
-/**
- * Schätzt Jahresrendite und Jahresvolatilität je Anlage aus monatlichen Kursdaten (US-04).
- * Regeln: mindestens 36 Monatswerte je Anlage (E8), sonst 422 mit allen betroffenen Anlagen (E6);
- * Anlagen ganz ohne Kurse werden gesondert gemeldet (Docs #80);
- * alle Anlagen werden im selben Zeitraum geschätzt (gemeinsamer Schätzzeitraum, Glossar).
- * Die Umrechnung passt zur MonteCarloEngine: Monatsrendite × 12, Monatsvolatilität × √12.
- */
+// Annualised as monthly return × 12 and monthly volatility × √12, matching MonteCarloEngine.
 @Component
 public class ParameterEstimator {
 
@@ -35,14 +29,12 @@ public class ParameterEstimator {
     }
 
     public EstimationResult estimate(List<Asset> assets) {
-        // 1. Kursdaten laden und je Anlage auf mindestens 36 Monatswerte prüfen
         Map<Asset, List<PricePoint>> series = new LinkedHashMap<>();
         List<Asset> noData = new ArrayList<>();
         List<Asset> insufficient = new ArrayList<>();
         for (Asset asset : assets) {
             List<PricePoint> prices = usable(priceHistoryService.getMonthlyPrices(asset));
             if (prices.isEmpty()) {
-                // Anbieter liefert gar keine Kurse (z. B. Xetra im kostenlosen Tarif) – nicht „zu kurz“ (Docs #80)
                 noData.add(asset);
             } else if (prices.size() < MIN_MONTHS) {
                 insufficient.add(asset);
@@ -54,7 +46,7 @@ public class ParameterEstimator {
             throw new InsufficientDataException(noData, insufficient);
         }
 
-        // 2. Gemeinsamer Schätzzeitraum: spätester Beginn bis frühestes Ende
+        // Common estimation window: latest start to earliest end.
         LocalDate from = series.values().stream().map(p -> p.getFirst().date())
                 .max(Comparator.naturalOrder()).orElseThrow();
         LocalDate to = series.values().stream().map(p -> p.getLast().date())
@@ -63,7 +55,6 @@ public class ParameterEstimator {
         Map<Asset, List<PricePoint>> windows = new LinkedHashMap<>();
         series.forEach((asset, prices) -> windows.put(asset, within(prices, from, to)));
 
-        // Überschneiden sich die Zeiträume zu wenig, liegt es an den Anlagen mit dem spätesten Beginn
         boolean windowTooShort = windows.values().stream().anyMatch(w -> w.size() < MIN_MONTHS);
         if (windowTooShort) {
             series.forEach((asset, prices) -> {
@@ -74,7 +65,6 @@ public class ParameterEstimator {
             throw new InsufficientDataException(insufficient);
         }
 
-        // 3. Rendite und Volatilität je Anlage
         List<Estimate> estimates = new ArrayList<>();
         windows.forEach((asset, prices) -> {
             double[] returns = monthlyReturns(prices);
@@ -85,7 +75,7 @@ public class ParameterEstimator {
         return new EstimationResult(from, to, estimates);
     }
 
-    // aufsteigend sortiert, nur positive Schlusskurse (Division durch 0 vermeiden)
+    // Only positive closing prices, to avoid division by zero.
     private static List<PricePoint> usable(List<PricePoint> prices) {
         return prices.stream()
                 .filter(p -> p.date() != null && p.close() != null && p.close().signum() > 0)

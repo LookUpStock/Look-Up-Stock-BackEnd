@@ -24,7 +24,6 @@ import com.lookupstock.marktdaten.exception.UpstreamUnavailableException;
 import com.lookupstock.marktdaten.model.SearchHit;
 import com.lookupstock.marktdaten.twelvedata.MarketDataProvider;
 
-/** NF-02: Suche mit Cache; die Fälle stammen aus dem früheren AssetServiceTest des core-service. */
 class SearchServiceTest {
 
     private MarketDataProvider provider;

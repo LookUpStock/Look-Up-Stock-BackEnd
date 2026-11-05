@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/** Unterscheidung der Fehlercodes von Twelve Data (ungültiger Key, API-Limit, unbekanntes Symbol). */
 class TwelveDataErrorTest {
 
     @Test

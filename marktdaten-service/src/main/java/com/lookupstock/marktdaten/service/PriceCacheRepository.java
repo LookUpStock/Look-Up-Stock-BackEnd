@@ -16,10 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lookupstock.marktdaten.model.PricePoint;
 
-/**
- * Lesen und Schreiben des Kurs-Caches in der Tabelle marktdaten.price_cache (NF-07, Migration V1).
- * Schlüssel ist Symbol und MIC-Code; ohne MIC wird '' gespeichert.
- */
 @Repository
 public class PriceCacheRepository {
 
@@ -29,7 +25,6 @@ public class PriceCacheRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /** Zwischengespeicherte Werte aufsteigend nach Datum, mit Abrufzeitpunkt. */
     public record CachedPrices(Instant fetchedAt, List<PricePoint> prices) {
     }
 
@@ -52,17 +47,12 @@ public class PriceCacheRepository {
         if (rows.isEmpty()) {
             return Optional.empty();
         }
-        // alle Zeilen stammen aus demselben Abruf; zur Sicherheit der älteste Zeitpunkt
         Instant fetchedAt = rows.stream().map(Row::fetchedAt).min(Comparator.naturalOrder()).orElseThrow();
         return Optional.of(new CachedPrices(fetchedAt,
                 rows.stream().map(r -> new PricePoint(r.date(), r.close())).toList()));
     }
 
-    /**
-     * Ersetzt alle Werte von Symbol und MIC-Code durch einen neuen Abruf, in einer eigenen Transaktion:
-     * Scheitert das Speichern (z. B. zwei gleichzeitige Abrufe), bleibt die Transaktion des Aufrufers intakt,
-     * etwa die des Queue-Verbrauchers für kursdaten.vorladen.
-     */
+    // Own transaction: if saving fails (e.g. two concurrent fetches) the caller's transaction stays intact.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void replace(String symbol, String micCode, List<PricePoint> prices, Instant fetchedAt) {
         String mic = key(micCode);
@@ -81,7 +71,7 @@ public class PriceCacheRepository {
                 });
     }
 
-    // null und leer bedeuten beide „Standardbörse des Anbieters“
+    // null and empty both mean the provider's default exchange.
     static String key(String micCode) {
         return micCode == null ? "" : micCode.trim();
     }

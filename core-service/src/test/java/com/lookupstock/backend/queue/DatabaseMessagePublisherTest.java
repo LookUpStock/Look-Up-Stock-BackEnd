@@ -17,9 +17,6 @@ import com.lookupstock.backend.repository.QueueMessageRepository;
 
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Unit-Tests für DatabaseMessagePublisher (BE #114): Nachricht wird mit Thema, JSON und Zeitpunkt gespeichert.
- */
 class DatabaseMessagePublisherTest {
 
     private static final Instant NOW = Instant.parse("2026-10-31T10:15:00Z");
@@ -37,7 +34,6 @@ class DatabaseMessagePublisherTest {
         verify(repository).save(captor.capture());
         QueueMessage saved = captor.getValue();
         assertThat(saved.getTopic()).isEqualTo("nutzung.ereignis");
-        // Der gespeicherte JSON-Text ergibt wieder dieselbe Nachricht
         assertThat(mapper.readValue(saved.getPayload(), UsageEventMessage.class))
                 .isEqualTo(new UsageEventMessage(UsageEventType.LOGIN, NOW));
         assertThat(saved.getCreatedAt()).isEqualTo(NOW);
